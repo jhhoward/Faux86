@@ -1,0 +1,4 @@
+*.o
+win32/faux86/.vs/
+win32/faux86/Debug/
+win32/faux86/x64/
