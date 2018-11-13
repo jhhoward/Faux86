@@ -18,25 +18,33 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
-#pragma once
+#include "../src/faux86/Audio.h"
+#include "VCHIQSound.h"
 
-#if 1
-#include <stdint.h>
-#else
-typedef unsigned char uint8_t;
-typedef unsigned short uint16_t;
-typedef unsigned int uint32_t;
-typedef unsigned long long uint64_t;
+using namespace Faux86;
 
-typedef signed char int8_t;
-typedef signed short int16_t;
-typedef signed int int32_t;
-typedef signed long long int64_t;
+VCHIQSound::VCHIQSound (Audio& inAudio, CVCHIQDevice *pVCHIQDevice, unsigned nSampleRate)
+	: CVCHIQSoundBaseDevice(pVCHIQDevice, nSampleRate, ChunkSize)
+	, audio(inAudio)
+{
+}
 
-typedef unsigned int uintptr_t;
-typedef uint32_t size_t;
-#endif
-
-#ifndef _WIN32
-typedef unsigned int size_t;
-#endif
+unsigned VCHIQSound::GetChunk (s16 *pBuffer, unsigned nChunkSize)
+{
+	uint8_t generatedAudio[ChunkSize / 2];
+	int numSamples = (int) nChunkSize / 2;
+	audio.fillAudioBuffer(generatedAudio, numSamples);
+	
+	for(int n = 0; n < numSamples; n++)
+	{
+		unsigned sample = generatedAudio[n];
+		
+		sample -= 128;			// unsigned (8 bit) -> signed (16 bit)
+		sample *= 256;
+		
+		pBuffer[n * 2] = sample;
+		pBuffer[n * 2 + 1] = sample;
+	}
+	
+	return nChunkSize;
+}

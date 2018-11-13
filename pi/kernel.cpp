@@ -51,13 +51,13 @@ CKernel::CKernel (void) :
 #endif
 	m_Timer (&m_Interrupt),
 	m_Logger (m_Options.GetLogLevel (), &m_Timer),
-	m_DWHCI (&m_Interrupt, &m_Timer)
-	
+	m_DWHCI (&m_Interrupt, &m_Timer),
 #if USE_MMC_MOUNTING
-	,m_EMMC (&m_Interrupt, &m_Timer, &m_ActLED)
+	m_EMMC (&m_Interrupt, &m_Timer, &m_ActLED),
 #endif
+	m_VCHIQ (&m_Memory, &m_Interrupt)
 {
-	m_ActLED.Blink (5);	// show we are alive
+	//m_ActLED.Blink (5);	// show we are alive
 }
 
 CKernel::~CKernel (void)
@@ -144,11 +144,19 @@ boolean CKernel::Initialize (void)
 	}
 #endif
 
+#if USE_VCHIQ_SOUND
+	if (bOK)
+	{
+		bOK = m_VCHIQ.Initialize ();
+	}
+#endif
+
 	if(bOK)
 	{
-		HostInterface = new CircleHostInterface(m_DeviceNameService, m_Interrupt);
+		HostInterface = new CircleHostInterface(m_DeviceNameService, m_Interrupt, m_VCHIQ);
 		vmConfig = new Config(HostInterface);
 		
+		vmConfig->audio.sampleRate = 44100;
 		vmConfig->biosFile = new EmbeddedDisk(pcxtbios, sizeof(pcxtbios));
 		vmConfig->videoRomFile = new EmbeddedDisk(videorom, sizeof(videorom));
 		vmConfig->asciiFile = new EmbeddedDisk(asciivga, sizeof(asciivga));
@@ -233,6 +241,7 @@ TShutdownMode CKernel::Run (void)
 #if !USE_BCM_FRAMEBUFFER
 		m_Screen.Rotor (0, nCount++);
 #endif
+		m_Scheduler.Yield ();
 		//m_Timer.MsDelay (0);
 	}
 	

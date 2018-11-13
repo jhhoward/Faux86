@@ -20,23 +20,25 @@
 */
 #pragma once
 
-#if 1
-#include <stdint.h>
-#else
-typedef unsigned char uint8_t;
-typedef unsigned short uint16_t;
-typedef unsigned int uint32_t;
-typedef unsigned long long uint64_t;
+#include <circle/interrupt.h>
+#include <circle/types.h>
+#include <vc4/sound/vchiqsoundbasedevice.h>
+#include <vc4/vchiq/vchiqdevice.h>
 
-typedef signed char int8_t;
-typedef signed short int16_t;
-typedef signed int int32_t;
-typedef signed long long int64_t;
+namespace Faux86
+{
+	class Audio;
+	
+	class VCHIQSound : public CVCHIQSoundBaseDevice
+	{
+	public:
+		VCHIQSound (Audio& inAudio, CVCHIQDevice *pVCHIQDevice, unsigned nSampleRate);
 
-typedef unsigned int uintptr_t;
-typedef uint32_t size_t;
-#endif
+	protected:
+		static constexpr unsigned ChunkSize = 2048;
+		
+		virtual unsigned GetChunk (s16 *pBuffer, unsigned nChunkSize) override;
 
-#ifndef _WIN32
-typedef unsigned int size_t;
-#endif
+		Audio& audio;
+	};
+}

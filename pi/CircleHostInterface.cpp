@@ -28,6 +28,7 @@
 #include "VM.h"
 #include "kernel.h"
 #include "PWMSound.h"
+#include "VCHIQSound.h"
 
 using namespace Faux86;
 
@@ -41,7 +42,7 @@ uint8_t* fakeFrameBuffer = nullptr;
 
 void Faux86::log(Faux86::LogChannel channel, const char* message, ...)
 {
-#if USE_SERIAL_LOGGING
+#if (USE_SERIAL_LOGGING || FAKE_FRAMEBUFFER)
 	va_list myargs;
 	va_start(myargs, message);
 	
@@ -65,14 +66,19 @@ void CircleFrameBufferInterface::init(uint32_t desiredWidth, uint32_t desiredHei
 	frameBuffer = new CBcmFrameBuffer (desiredWidth, desiredHeight, 8);
 
 	frameBuffer->Initialize();
+	surface = new RenderSurface();
+	surface->width = frameBuffer->GetWidth();
+	surface->height = frameBuffer->GetHeight();
+	surface->pitch = frameBuffer->GetPitch();
+	surface->pixels = (uint8_t*) frameBuffer->GetBuffer();
 #else
 	log(LogVerbose, "Creating temporary buffer");
 	surface = RenderSurface::create(640, 400);
-	log(LogVerbose, "Created at %x", (uint32_t)surface.pixels);
+	log(LogVerbose, "Created at %x", (uint32_t)surface->pixels);
 	
 	for(int n = 0; n < 640 * 400; n++)
 	{
-		surface.pixels[n] = 0xcd;
+		surface->pixels[n] = 0xcd;
 	}
 	log(LogVerbose, "Cleared!");
 #endif
@@ -80,7 +86,7 @@ void CircleFrameBufferInterface::init(uint32_t desiredWidth, uint32_t desiredHei
 
 RenderSurface* CircleFrameBufferInterface::getSurface()
 { 
-	return &surface;
+	return surface;
 }
 
 void CircleFrameBufferInterface::setPalette(Palette* palette)
@@ -97,14 +103,26 @@ void CircleFrameBufferInterface::setPalette(Palette* palette)
 
 void CircleAudioInterface::init(VM& vm)
 {
-	pwmSound = new PWMSound(vm.audio, &interruptSystem, vm.audio.sampleRate);
-	pwmSound->Start();
+	//pwmSound = new PWMSound(vm.audio, &interruptSystem, vm.audio.sampleRate);
+	//pwmSound->Start();
+#if USE_VCHIQ_SOUND
+	vchiqSound = new VCHIQSound(vm.audio, &vchiqDevice, vm.audio.sampleRate);
+	vchiqSound->Start();
+#endif
 }
 
 void CircleAudioInterface::shutdown()
 {
-	pwmSound->Cancel();
-	delete pwmSound;
+	if(pwmSound)
+	{
+		pwmSound->Cancel();
+		delete pwmSound;
+	}
+	if(vchiqSound)
+	{
+		vchiqSound->Cancel();
+		delete vchiqSound;
+	}
 }
 
 CircleTimerInterface::CircleTimerInterface()
@@ -132,8 +150,8 @@ DiskInterface* CircleHostInterface::openFile(const char* filename)
 	return nullptr;
 } 
 
-CircleHostInterface::CircleHostInterface(CDeviceNameService& deviceNameService, CInterruptSystem& interruptSystem)
-: audio(interruptSystem)
+CircleHostInterface::CircleHostInterface(CDeviceNameService& deviceNameService, CInterruptSystem& interruptSystem, CVCHIQDevice& inVchiqDevice)
+: audio(interruptSystem, inVchiqDevice)
 {
 	instance = this;
 	

@@ -5,7 +5,7 @@
 CIRCLEHOME = ../../circle
 SRCDIR = ../src/faux86
 
-OBJS	=  kernel.o main.o CircleHostInterface.o PWMSound.o \
+OBJS	=  kernel.o main.o CircleHostInterface.o PWMSound.o VCHIQSound.o \
 	  $(SRCDIR)/Adlib.o \
 	  $(SRCDIR)/Audio.o \
 	  $(SRCDIR)/Config.o \
@@ -38,6 +38,10 @@ CPPFLAGS = -I$(SRCDIR) -Wall -Werror -O3
 #	  $(CIRCLEHOME)/lib/libcircle.a
 
 LIBS	= $(CIRCLEHOME)/addon/SDCard/libsdcard.a \
+	  $(CIRCLEHOME)/addon/vc4/sound/libvchiqsound.a \
+	  $(CIRCLEHOME)/addon/vc4/vchiq/libvchiq.a \
+	  $(CIRCLEHOME)/addon/linux/liblinuxemu.a \
+	  $(CIRCLEHOME)/lib/sched/libsched.a \
 	  $(CIRCLEHOME)/lib/usb/libusb.a \
 	  $(CIRCLEHOME)/lib/input/libinput.a \
 	  $(CIRCLEHOME)/lib/fs/libfs.a \

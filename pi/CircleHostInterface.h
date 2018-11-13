@@ -27,10 +27,12 @@ class CUSBKeyboardDevice;
 class CDeviceNameService;
 class CInterruptSystem;
 class CBcmFrameBuffer;
+class CVCHIQDevice;
 
 namespace Faux86
 {
 	class PWMSound;
+	class VCHIQSound;
 	
 	class CircleFrameBufferInterface : public FrameBufferInterface
 	{
@@ -45,19 +47,21 @@ namespace Faux86
 
 	private:
 		CBcmFrameBuffer* frameBuffer = nullptr;
-		RenderSurface surface;
+		RenderSurface* surface;
 	};
 
 	class CircleAudioInterface : public AudioInterface
 	{
 	public:
-		CircleAudioInterface(CInterruptSystem& inInterruptSystem) : interruptSystem(inInterruptSystem) {}
+		CircleAudioInterface(CInterruptSystem& inInterruptSystem, CVCHIQDevice& inVchiqDevice) : interruptSystem(inInterruptSystem), vchiqDevice(inVchiqDevice) {}
 		virtual void init(VM& vm) override;
 		virtual void shutdown() override;
 
 	private:
 		PWMSound* pwmSound = nullptr;
+		VCHIQSound* vchiqSound = nullptr;
 		CInterruptSystem& interruptSystem;
+		CVCHIQDevice& vchiqDevice;
 	};
 	
 	class CircleTimerInterface : public TimerInterface
@@ -75,7 +79,7 @@ namespace Faux86
 	class CircleHostInterface : public HostSystemInterface
 	{
 	public:
-		CircleHostInterface(CDeviceNameService& deviceNameService, CInterruptSystem& interruptSystem);
+		CircleHostInterface(CDeviceNameService& deviceNameService, CInterruptSystem& interruptSystem, CVCHIQDevice& inVchiqDevice);
 		
 		void tick(VM& vm);
 		

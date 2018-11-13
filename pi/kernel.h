@@ -35,11 +35,15 @@
 //#include <circle/fs/fat/fatfs.h>
 #include <circle/types.h>
 #include <circle/usb/dwhcidevice.h>
+#include <vc4/vchiq/vchiqdevice.h>
+#include <circle/sched/scheduler.h>
+
 
 #define USE_BCM_FRAMEBUFFER 1
 #define USE_EMBEDDED_BOOT_FLOPPY 1
 #define USE_MMC_MOUNTING 1
 #define USE_SERIAL_LOGGING 0
+#define USE_VCHIQ_SOUND 1
 
 enum TShutdownMode
 {
@@ -80,11 +84,15 @@ private:
 	CInterruptSystem	m_Interrupt;
 	CTimer			m_Timer;
 	CLogger			m_Logger;
+	CScheduler		m_Scheduler;
+
 	CDWHCIDevice		m_DWHCI;
 
 #if USE_MMC_MOUNTING
 	CEMMCDevice		m_EMMC;
 #endif
+	CVCHIQDevice		m_VCHIQ;
+
 	
 	//CFATFileSystem		m_FileSystem;
 	Faux86::CircleHostInterface* HostInterface;
