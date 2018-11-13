@@ -87,7 +87,6 @@ private:
 #endif
 	
 	//CFATFileSystem		m_FileSystem;
-
 	Faux86::CircleHostInterface* HostInterface;
 	Faux86::Config* vmConfig;
 	Faux86::VM* vm;

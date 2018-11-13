@@ -58,6 +58,7 @@ void Memory::writeByte(uint32_t addr32, uint8_t value)
 
 	if ((tempaddr32 >= 0xA0000) && (tempaddr32 <= 0xBFFFF)) 
 	{
+		vm.renderer.onMemoryWrite(addr32, value);
 		if ((vm.video.vidmode != 0x13) && (vm.video.vidmode != 0x12) && (vm.video.vidmode != 0xD) && (vm.video.vidmode != 0x10))
 		{
 			RAM[tempaddr32] = value;

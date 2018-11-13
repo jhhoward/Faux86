@@ -21,17 +21,22 @@
 #pragma once
 
 #include "HostSystemInterface.h"
+#include "Renderer.h"
+
+class CUSBKeyboardDevice;
+class CDeviceNameService;
+class CInterruptSystem;
+class CBcmFrameBuffer;
 
 namespace Faux86
 {
+	class PWMSound;
+	
 	class CircleFrameBufferInterface : public FrameBufferInterface
 	{
 	public:
 		virtual void init(uint32_t desiredWidth, uint32_t desiredHeight) override;
-		virtual uint32_t getWidth() override;
-		virtual uint32_t getHeight() override;
-		virtual uint32_t getPitch() override;
-		virtual uint8_t* getPixels() override;
+		virtual RenderSurface* getSurface() override;
 		
 		virtual void setPalette(Palette* palette) override;
 
@@ -39,16 +44,20 @@ namespace Faux86
 		virtual void unlock() override {}
 
 	private:
-		class CBcmFrameBuffer* frameBuffer = nullptr;
+		CBcmFrameBuffer* frameBuffer = nullptr;
+		RenderSurface surface;
 	};
 
 	class CircleAudioInterface : public AudioInterface
 	{
 	public:
+		CircleAudioInterface(CInterruptSystem& inInterruptSystem) : interruptSystem(inInterruptSystem) {}
 		virtual void init(VM& vm) override;
 		virtual void shutdown() override;
 
 	private:
+		PWMSound* pwmSound = nullptr;
+		CInterruptSystem& interruptSystem;
 	};
 	
 	class CircleTimerInterface : public TimerInterface
@@ -66,7 +75,7 @@ namespace Faux86
 	class CircleHostInterface : public HostSystemInterface
 	{
 	public:
-		CircleHostInterface(class CDeviceNameService& deviceNameService);
+		CircleHostInterface(CDeviceNameService& deviceNameService, CInterruptSystem& interruptSystem);
 		
 		void tick(VM& vm);
 		
@@ -97,7 +106,7 @@ namespace Faux86
 
 		static CircleHostInterface* instance;
 		
-		class CUSBKeyboardDevice* keyboard; 
+		CUSBKeyboardDevice* keyboard; 
 		
 		static constexpr int MaxInputBufferSize = 16;
 		

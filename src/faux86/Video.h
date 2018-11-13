@@ -74,7 +74,6 @@ namespace Faux86
 		uint8_t VRAM[VRAMSize];
 
 		uint8_t cgabg, blankattr, vidgfxmode, vidcolor;
-		uint16_t cursx, cursy;
 		uint16_t cols = 80; 
 		uint16_t rows = 25;
 		uint16_t vgapage, cursorposition, cursorvisible;

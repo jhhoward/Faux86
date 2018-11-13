@@ -83,26 +83,15 @@ DiskInterface* SDLHostSystemInterface::openFile(const char* filename)
 void SDLFrameBufferInterface::init(uint32_t desiredWidth, uint32_t desiredHeight)
 {
 	surface = SDL_SetVideoMode(desiredWidth, desiredHeight, 8, SDL_HWSURFACE);
+	renderSurface.width = surface->w;
+	renderSurface.pitch = surface->pitch;
+	renderSurface.height = surface->h;
+	renderSurface.pixels = (uint8_t*) surface->pixels;
 }
 
-uint32_t SDLFrameBufferInterface::getWidth()
+RenderSurface* SDLFrameBufferInterface::getSurface()
 {
-	return surface->w;
-}
-
-uint32_t SDLFrameBufferInterface::getHeight()
-{
-	return surface->h;
-}
-
-uint32_t SDLFrameBufferInterface::getPitch()
-{
-	return surface->pitch / surface->format->BytesPerPixel;
-}
-
-uint8_t* SDLFrameBufferInterface::getPixels()
-{
-	return (uint8_t*) surface->pixels;
+	return &renderSurface;
 }
 
 void SDLFrameBufferInterface::setPalette(Palette* palette)

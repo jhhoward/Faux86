@@ -38,6 +38,8 @@
 //#error "Not enough kernel space: change KERNEL_MAX_SIZE in circle/sysconfig.h to at least 32 megabytes and recompile circle"
 #endif
 
+#define AUDIO_SAMPLE_RATE 44100
+
 static const char FromKernel[] = "kernel";
 
 using namespace Faux86;
@@ -144,9 +146,9 @@ boolean CKernel::Initialize (void)
 
 	if(bOK)
 	{
-		HostInterface = new CircleHostInterface(m_DeviceNameService);
+		HostInterface = new CircleHostInterface(m_DeviceNameService, m_Interrupt);
 		vmConfig = new Config(HostInterface);
-        
+		
 		vmConfig->biosFile = new EmbeddedDisk(pcxtbios, sizeof(pcxtbios));
 		vmConfig->videoRomFile = new EmbeddedDisk(videorom, sizeof(videorom));
 		vmConfig->asciiFile = new EmbeddedDisk(asciivga, sizeof(asciivga));
@@ -220,11 +222,6 @@ TShutdownMode CKernel::Run (void)
 #endif
 	m_Logger.Write(FromKernel, LogNotice, "End mem test");
 
-	//while(1)
-	//{
-	//	m_Timer.MsDelay (100);
-	//}
-	
 #if !USE_BCM_FRAMEBUFFER
 	unsigned int nCount = 0;
 #endif
@@ -239,72 +236,6 @@ TShutdownMode CKernel::Run (void)
 		//m_Timer.MsDelay (0);
 	}
 	
-	return ShutdownHalt;
-	
-	/*
-	CUSBKeyboardDevice *pKeyboard = (CUSBKeyboardDevice *) m_DeviceNameService.GetDevice ("ukbd1", FALSE);
-	
-	if(pKeyboard)
-	{
-		pKeyboard->RegisterKeyStatusHandlerRaw (KeyStatusHandlerRaw);
-		//	pKeyboard->RegisterKeyPressedHandler (KeyPressedHandler);
-	}
-	else return ShutdownHalt;
-	
-	char screentext[80*25+1];
-	int cursorX, cursorY;
-	int firstRow = 5;
-	int count = 0;
-	uint32_t lastRefreshTime = CTimer::GetClockTicks();
-	const int refreshRate = 60;
-	const int refreshDelay = CLOCKHZ / refreshRate;
-	
-	while(simulatefake86())
-	{
-		if(pKeyboard)
-			pKeyboard->UpdateLEDs ();
-		
-		// TODO: This should really be based on screen refresh rate / vsync interrupt
-		uint32_t currentTime = CTimer::GetClockTicks();
-		uint32_t timeElapsedSinceRefresh = (currentTime >= lastRefreshTime) ? (currentTime - lastRefreshTime) : (0xffffffff - lastRefreshTime) + (currentTime);
-		
-		if(timeElapsedSinceRefresh >= refreshDelay)
-		{
-			uint32_t* palettePtr;
-			int paletteSize;
-			
-			getactivepalette((uint8_t**)&palettePtr, &paletteSize);
-			
-			for(int n = 0; n < paletteSize; n++)
-			{
-				m_pFrameBuffer->SetPalette32 (n, palettePtr[n]);
-			}
-			m_pFrameBuffer->UpdatePalette();
-			
-			drawfake86((uint8_t*) m_pFrameBuffer->GetBuffer());
-			lastRefreshTime = currentTime;
-			//m_Timer.MsDelay (1);
-		}
-		
-		while(m_InputBufferSize > 0)
-		{
-			if(m_InputBuffer[m_InputBufferPos].eventType == EventType::KeyPress)
-			{
-				handlekeydownraw(m_InputBuffer[m_InputBufferPos].scancode);
-			}
-			else
-			{
-				handlekeyupraw(m_InputBuffer[m_InputBufferPos].scancode);
-			}
-			m_InputBufferPos++;
-			m_InputBufferSize --;
-			if(m_InputBufferPos >= INPUT_BUFFER_SIZE)
-			{
-				m_InputBufferPos = 0;
-			}
-		}
-	}*/
-
 	return ShutdownHalt;
 }
 

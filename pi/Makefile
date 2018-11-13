@@ -5,7 +5,7 @@
 CIRCLEHOME = ../../circle
 SRCDIR = ../src/faux86
 
-OBJS	=  kernel.o main.o CircleHostInterface.o \
+OBJS	=  kernel.o main.o CircleHostInterface.o PWMSound.o \
 	  $(SRCDIR)/Adlib.o \
 	  $(SRCDIR)/Audio.o \
 	  $(SRCDIR)/Config.o \

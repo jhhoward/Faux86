@@ -22,6 +22,7 @@
 #include "VM.h"
 #include "Renderer.h"
 #include "Profiler.h"
+#include "MemUtils.h"
 
 using namespace Faux86;
 
@@ -43,6 +44,7 @@ void setwindowtitle (const char *extra)
 
 void Renderer::markScreenModeChanged(uint32_t newWidth, uint32_t newHeight)
 {
+	refreshTextMode();
 	screenModeChanged = true;
 	nativeWidth = newWidth;
 	nativeHeight = newHeight;
@@ -57,13 +59,25 @@ Renderer::Renderer(VM& inVM)
 Renderer::~Renderer()
 {
 	delete[] scalemap;
+	RenderSurface::destroy(renderSurface);
 }
 
 void Renderer::init()
 {
 	fb = &vm.config.hostSystemInterface->getFrameBuffer();
+
 	fb->init(OUTPUT_FRAMEBUFFER_WIDTH, OUTPUT_FRAMEBUFFER_HEIGHT);
+
+	//fb->init(1024, 1024);
+
+	hostSurface = fb->getSurface();
+
+	renderSurface = RenderSurface::create(1024, 1024);
+	//renderSurface = hostSurface;
+
 	createScaleMap();
+
+	refreshTextMode();
 
 	//sprintf (windowtitle, "%s", BUILD_STRING);
 	//setwindowtitle ("");
@@ -74,25 +88,33 @@ void Renderer::init()
 	vm.taskManager.addTask(new RenderTask(*this));
 }
 
+void Renderer::refreshTextMode()
+{
+	for (unsigned n = 0; n < MaxColumns * MaxRows; n++)
+	{
+		textModeDirtyFlag[n] = 1;
+	}
+}
+
 void Renderer::createScaleMap()
 {
 	log(LogVerbose, "Creating scale map");
 	if (!scalemap)
 	{
-		scalemap = new uint32_t[(fb->getWidth() + 1) * fb->getHeight()];
+		scalemap = new uint32_t[(hostSurface->width + 1) * hostSurface->height];
 	}
 
 	uint32_t srcx, srcy, dstx, dsty, scalemapptr;
 	double xscale, yscale;
 
-	xscale = (double) nativeWidth / (double) fb->getWidth();
-	yscale = (double) nativeHeight / (double) fb->getHeight();
+	xscale = (double) nativeWidth / (double) hostSurface->width;
+	yscale = (double) nativeHeight / (double) hostSurface->height;
 	scalemapptr = 0;
-	for (dsty=0; dsty<(uint32_t)fb->getHeight(); dsty++) 
+	for (dsty=0; dsty<(uint32_t)hostSurface->height; dsty++) 
 	{
 		srcy = (uint32_t) ( (double) dsty * yscale);
 		scalemap[scalemapptr++] = srcy;
-		for (dstx=0; dstx<(uint32_t)fb->getWidth(); dstx++) 
+		for (dstx=0; dstx<(uint32_t)hostSurface->width; dstx++) 
 		{
 			srcx = (uint32_t) ( (double) dstx * xscale);
 			scalemap[scalemapptr++] = srcx;
@@ -110,12 +132,15 @@ int RenderTask::update()
 {
 	//ProfileBlock block(vm.timing, "RenderTask::update");
 
+	// Blink cursor
 	cursorcurtick = (uint32_t)vm.timing.getMS();
 	if ((cursorcurtick - cursorprevtick) >= 250)
 	{
 		vm.video.updatedscreen = 1;
 		vm.video.cursorvisible = ~vm.video.cursorvisible & 1;
 		cursorprevtick = cursorcurtick;
+		
+		vm.renderer.markTextDirty(vm.renderer.cursorX, vm.renderer.cursorY);
 	}
 
 	uint64_t drawStartTime = vm.timing.getTicks();
@@ -160,6 +185,14 @@ int RenderTask::update()
 	//return 0;
 }
 
+void Renderer::setCursorPosition(uint32_t x, uint32_t y)
+{
+	markTextDirty(cursorX, cursorY);
+	cursorX = x;
+	cursorY = y;
+	markTextDirty(cursorX, cursorY);
+}
+
 void Renderer::stretchBlit () 
 {
 	// TODO
@@ -169,22 +202,22 @@ void Renderer::stretchBlit ()
 	uint32_t ofs;
 	uint8_t *pixelrgb;
 
-	limitx = (uint32_t)((double) nativeWidth / (double) fb->getWidth());
-	limity = (uint32_t)((double) nativeHeight / (double) fb->getHeight());
+	limitx = (uint32_t)((double) nativeWidth / (double) hostSurface->width);
+	limity = (uint32_t)((double) nativeHeight / (double) hostSurface->height);
 
 	if (!fb->lock())
 		return;
 
 	lasty = 0;
 	scalemapptr = 0;
-	for (dsty=0; dsty<(uint32_t)fb->getHeight(); dsty++) {
+	for (dsty=0; dsty<(uint32_t)hostSurface->height; dsty++) {
 			srcy = scalemap[scalemapptr++];
-			ofs = dsty*fb->getPitch();
+			ofs = dsty*hostSurface->pitch;
 			consecutivex = 0;
 			lastx = 0;
 			if (srcy == lasty) consecutivey++;
 			else consecutivey = 0;
-			for (dstx=0; dstx<(uint32_t)fb->getWidth(); dstx++) {
+			for (dstx=0; dstx<(uint32_t)hostSurface->width; dstx++) {
 					srcx = scalemap[scalemapptr++];
 					pixelrgb = (uint8_t *) &prestretch[srcy][srcx];
 					r = pixelrgb[0];
@@ -230,7 +263,7 @@ void Renderer::stretchBlit ()
 							b = b >> 1;
 							//r = 0; g = 0; b = 255;
 						}
-					fb->getPixels() [ofs++] = mapRGB ((uint8_t) r, (uint8_t) g, (uint8_t) b);
+					hostSurface->pixels [ofs++] = mapRGB ((uint8_t) r, (uint8_t) g, (uint8_t) b);
 					lastx = srcx;
 				}
 			lasty = srcy;
@@ -243,23 +276,28 @@ void Renderer::stretchBlit ()
 
 void Renderer::simpleBlit()
 {
+	//ProfileBlock block(vm.timing, "Renderer::simpleBlit");
+
 	if (!fb->lock())
 		return;
 
-	uint8_t* pixels = fb->getPixels();
-	uint32_t pitch = fb->getPitch();
-	uint32_t width = fb->getWidth();
-	uint32_t height = fb->getHeight();
-
-	for (uint32_t y = 0; y < height; y++)
 	{
-		for (uint32_t x = 0; x < width; x++)
+		//ProfileBlock block(vm.timing, "Renderer::simpleBlit inner");
+
+		uint8_t* pixels = hostSurface->pixels;
+		uint32_t pitch = hostSurface->pitch;
+		uint32_t width = hostSurface->width;
+		uint32_t height = hostSurface->height;
+
+		for (uint32_t y = 0; y < height; y++)
 		{
-			pixels[y * pitch + x] = prestretch[y][x];
+			MemUtils::memcpy(&pixels[y * pitch], &renderSurface->pixels[y * renderSurface->pitch], width);
 		}
 	}
 
-	fb->unlock();
+	{		
+		fb->unlock();
+	}
 }
 
 void Renderer::roughBlit () 
@@ -269,10 +307,10 @@ void Renderer::roughBlit ()
 
 
 	uint32_t srcx, srcy, dstx, dsty, scalemapptr;
-	uint8_t* pixels = fb->getPixels();
-	uint32_t pitch = fb->getPitch();
-	uint32_t width = fb->getWidth();
-	uint32_t height = fb->getHeight();
+	uint8_t* pixels = hostSurface->pixels;
+	uint32_t pitch = hostSurface->pitch;
+	uint32_t width = hostSurface->width;
+	uint32_t height = hostSurface->height;
 
 	{
 		scalemapptr = 0;
@@ -284,7 +322,7 @@ void Renderer::roughBlit ()
 			for (dstx = 0; dstx < width; dstx++)
 			{
 				srcx = scalemap[scalemapptr++];
-				*dstPtr++ = prestretch[srcy][srcx];
+				*dstPtr++ = renderSurface->get(srcx, srcy);
 			}
 		}
 	}
@@ -305,10 +343,10 @@ void Renderer::doubleBlit ()
 {
 	uint32_t srcx, srcy, dstx, dsty, curcolor;
 	int32_t ofs;
-	uint8_t* pixels = fb->getPixels();
-	uint32_t pitch = fb->getPitch();
-	uint32_t width = fb->getWidth();
-	uint32_t height = fb->getHeight();
+	uint8_t* pixels = hostSurface->pixels;
+	uint32_t pitch = hostSurface->pitch;
+	uint32_t width = hostSurface->width;
+	uint32_t height = hostSurface->height;
 
 	if(!fb->lock())
 		return;
@@ -320,7 +358,7 @@ void Renderer::doubleBlit ()
 		for (dstx=0; dstx < width; dstx += 2) 
 		{
 			srcx = (uint32_t) (dstx >> 1);
-			curcolor = prestretch[srcy][srcx];
+			curcolor = renderSurface->get(srcx, srcy);
 			pixels [ofs+pitch] = curcolor;
 			pixels [ofs++] = curcolor;
 			pixels [ofs+pitch] = curcolor;
@@ -329,6 +367,140 @@ void Renderer::doubleBlit ()
 	}
 
 	fb->unlock();
+}
+
+void Renderer::onMemoryWrite(uint32_t address, uint8_t value)
+{
+	if (!vm.video.vidgfxmode)
+	{
+		uint32_t base = vm.video.vgapage + vm.video.videobase;
+
+		if (address >= base && address < base + vm.video.cols * vm.video.rows * 2)
+		{
+			textModeDirtyFlag[(address - base) / 2] = 1;
+		}
+	}
+	else
+	{
+		switch (vm.video.vidmode)
+		{
+			case 0x13:	// 320x200 256 colour
+			{
+				bool isPlaneMode = (vm.video.VGA_SC[4] & 6) != 0;
+
+				if (!isPlaneMode)
+				{
+					uint32_t relAddress = address - vm.video.videobase - vm.video.vgapage;
+					if (relAddress < 320 * 200)
+					{
+						uint32_t y = relAddress / 320;
+						uint32_t x = relAddress % 320;
+						renderSurface->set(x, y, value);
+					}
+				}
+				else
+				{
+					// TODO
+				}
+			}
+			break;
+		}
+	}
+
+}
+
+void Renderer::renderTextMode()
+{
+	uint32_t glyphWidth = 640 / vm.video.cols;
+	uint32_t glyphHeight = 400 / vm.video.rows;
+	uint32_t outX = 0, outY = 0;
+	uint8_t* fontData = vm.video.fontcga;
+	uint8_t* RAM = vm.memory.RAM;
+
+	for (uint32_t row = 0; row < vm.video.rows; row++)
+	{
+		for (uint32_t col = 0; col < vm.video.cols; col++)
+		{
+			bool isDirty = textModeDirtyFlag[row * vm.video.cols + col] != 0;
+
+			if (isDirty)
+			{
+				textModeDirtyFlag[row * vm.video.cols + col] = 0;
+
+				uint32_t vidptr = vm.video.vgapage + vm.video.videobase + row * vm.video.cols * 2 + col * 2;
+				uint8_t curchar = RAM[vidptr];
+
+				for (uint32_t j = 0; j < glyphHeight; j++)
+				{
+					for (uint32_t i = 0; i < glyphWidth; i++)
+					{
+						uint32_t glyphRow = j * 16 / glyphHeight;
+						uint32_t glyphCol = i * 8 / glyphWidth;
+						uint8_t glyphData = fontData[curchar * 128 + glyphRow * 8 + glyphCol];
+						uint8_t color;
+
+						if (vm.video.vidcolor)
+						{
+							if (!glyphData)
+								color = RAM[vidptr + 1] / 16; //high intensity background
+							else
+								color = RAM[vidptr + 1] & 15;
+						}
+						else
+						{
+							if ((RAM[vidptr + 1] & 0x70))
+							{
+								if (!glyphData)
+									color = 7;
+								else
+									color = 0;
+							}
+							else
+							{
+								if (!glyphData)
+									color = 0;
+								else
+									color = 7;
+							}
+						}
+						renderSurface->set(outX, outY, color);
+						outX++;
+					}
+					outX -= glyphWidth;
+					outY++;
+				}
+				outY -= glyphHeight;
+			}
+
+			outX += glyphWidth;
+		}
+		outX = 0;
+		outY += glyphHeight;
+	}
+
+	// Draw cursor
+	if (vm.video.cursorvisible) 
+	{
+		uint32_t curheight = 2;
+		uint32_t x1 = cursorX * glyphWidth;
+		uint32_t y1 = cursorY * 8 + 8 - curheight;
+		for (uint32_t y = y1 * 2; y <= y1 * 2 + curheight - 1; y++)
+		{
+			for (uint32_t x = x1; x <= x1 + glyphWidth - 1; x++)
+			{
+				uint8_t color = RAM[vm.video.videobase + cursorY * vm.video.cols * 2 + cursorX * 2 + 1] & 15;
+				renderSurface->set(x, y, color);
+			}
+		}
+	}
+}
+
+void Renderer::markTextDirty(uint32_t x, uint32_t y)
+{
+	if (x < MaxColumns && y < MaxRows)
+	{
+		textModeDirtyFlag[y * vm.video.cols + x] = 1;
+	}
 }
 
 void Renderer::draw () 
@@ -344,257 +516,223 @@ void Renderer::draw ()
 	{
 		//ProfileBlock innerblock(vm.timing, "Renderer::draw inner");
 
-	
 
-	uint8_t* RAM = vm.memory.RAM;
-	uint8_t* portram = vm.ports.portram;
-	uint32_t planemode, vgapage, chary, charx, vidptr, divx, divy, curchar, curpixel, usepal, intensity, blockw, curheight, x1, y1;
-	uint8_t color;
-	uint32_t x, y;
-	switch (vm.video.vidmode) {
-			case 0:
-			case 1:
-			case 2: //text modes
-			case 3:
-			case 7:
-			case 0x82:
-				nativeWidth = 640;
-				nativeHeight = 400;
-				vgapage = ( (uint32_t) vm.video.VGA_CRTC[0xC]<<8) + (uint32_t)vm.video.VGA_CRTC[0xD];
-				for (y=0; y<400; y++)
-					for (x=0; x<640; x++) {
-							if (vm.video.cols==80) {
-									charx = x/8;
-									divx = 1;
-								}
-							else {
-									charx = x/16;
-									divx = 2;
-								}
-							if ( (portram[0x3D8]==9) && (portram[0x3D4]==9) ) {
-									chary = y/4;
-									vidptr = vgapage + vm.video.videobase + chary*vm.video.cols*2 + charx*2;
-									curchar = RAM[vidptr];
-									color = vm.video.fontcga[curchar*128 + (y%4) *8 + ( (x/divx) %8) ];
-								}
-							else {
-									chary = y/16;
-									vidptr = vm.video.videobase + chary*vm.video.cols*2 + charx*2;
-									curchar = RAM[vidptr];
-									color = vm.video.fontcga[curchar*128 + (y%16) *8 + ( (x/divx) %8) ];
-								}
-							if (vm.video.vidcolor) {
-									/*if (!color) if (portram[0x3D8]&128) color = palettecga[ (RAM[vidptr+1]/16) &7];
-										else*/ if (!color) color = RAM[vidptr+1]/16; //high intensity background
-									else color = RAM[vidptr+1]&15;
-								}
-							else {
-									if ( (RAM[vidptr+1] & 0x70) ) {
-											if (!color) color = 7;
-											else color = 0;
-										}
-									else {
-											if (!color) color = 0;
-											else color = 7;
-										}
-								}
-							prestretch[y][x] = color;
-						}
-				break;
-			case 4:
-			case 5:
+
+		uint8_t* RAM = vm.memory.RAM;
+		uint8_t* portram = vm.ports.portram;
+		uint32_t planemode, chary, charx, vidptr, curpixel, usepal, intensity, x1;
+		uint8_t color;
+		uint32_t x, y;
+		switch (vm.video.vidmode) {
+		case 0:
+		case 1:
+		case 2: //text modes
+		case 3:
+		case 7:
+		case 0x82:
+			nativeWidth = 640;
+			nativeHeight = 400;
+			renderTextMode();
+			break;
+		case 4:
+		case 5:
+			nativeWidth = 320;
+			nativeHeight = 200;
+			usepal = (portram[0x3D9] >> 5) & 1;
+			intensity = ((portram[0x3D9] >> 4) & 1) << 3;
+			for (y = 0; y < 200; y++) {
+				for (x = 0; x < 320; x++) {
+					charx = x;
+					chary = y;
+					vidptr = vm.video.videobase + ((chary >> 1) * 80) + ((chary & 1) * 8192) + (charx >> 2);
+					curpixel = RAM[vidptr];
+					switch (charx & 3) {
+					case 3:
+						curpixel = curpixel & 3;
+						break;
+					case 2:
+						curpixel = (curpixel >> 2) & 3;
+						break;
+					case 1:
+						curpixel = (curpixel >> 4) & 3;
+						break;
+					case 0:
+						curpixel = (curpixel >> 6) & 3;
+						break;
+					}
+					if (vm.video.vidmode == 4) {
+						curpixel = curpixel * 2 + usepal + intensity;
+						if (curpixel == (usepal + intensity))  curpixel = vm.video.cgabg;
+						color = curpixel;
+						renderSurface->set(x, y, color);
+					}
+					else {
+						curpixel = curpixel * 63;
+						color = curpixel;
+						renderSurface->set(x, y, color);
+					}
+				}
+			}
+			break;
+		case 6:
+			nativeWidth = 640;
+			nativeHeight = 200;
+			for (y = 0; y < 400; y += 2) {
+				for (x = 0; x < 640; x++) {
+					charx = x;
+					chary = y >> 1;
+					vidptr = vm.video.videobase + ((chary >> 1) * 80) + ((chary & 1) * 8192) + (charx >> 3);
+					curpixel = (RAM[vidptr] >> (7 - (charx & 7))) & 1;
+					color = curpixel * 15;
+					renderSurface->set(x, y, color);
+					renderSurface->set(x, y + 1, color);
+				}
+			}
+			break;
+		case 127:
+			nativeWidth = 720;
+			nativeHeight = 348;
+			for (y = 0; y < 348; y++) {
+				for (x = 0; x < 720; x++) {
+					charx = x;
+					chary = y >> 1;
+					vidptr = vm.video.videobase + ((y & 3) << 13) + (y >> 2) * 90 + (x >> 3);
+					curpixel = (RAM[vidptr] >> (7 - (charx & 7))) & 1;
+					if (curpixel)
+						color = 0xf;
+					else
+						color = 0x00;
+					renderSurface->set(x, y, color);
+				}
+			}
+			break;
+		case 0x8: //160x200 16-color (PCjr)
+			nativeWidth = 640; //fix this
+			nativeHeight = 400; //part later
+			for (y = 0; y < 400; y++)
+				for (x = 0; x < 640; x++) {
+					vidptr = 0xB8000 + (y >> 2) * 80 + (x >> 3) + ((y >> 1) & 1) * 8192;
+					if (((x >> 1) & 1) == 0) color = RAM[vidptr] >> 4;
+					else color = RAM[vidptr] & 15;
+					renderSurface->set(x, y, color);
+				}
+			break;
+		case 0x9: //320x200 16-color (Tandy/PCjr)
+			nativeWidth = 640; //fix this
+			nativeHeight = 400; //part later
+			for (y = 0; y < 400; y++)
+				for (x = 0; x < 640; x++) {
+					vidptr = 0xB8000 + (y >> 3) * 160 + (x >> 2) + ((y >> 1) & 3) * 8192;
+					if (((x >> 1) & 1) == 0) color = RAM[vidptr] >> 4;
+					else color = RAM[vidptr] & 15;
+					renderSurface->set(x, y, color);
+				}
+			break;
+		case 0xD:
+			nativeWidth = 320;
+			nativeHeight = 200;
+			for (y = 0; y < 200; y++)
+				for (x = 0; x < 320; x++) {
+					vidptr = y * 40 + (x >> 3);
+					x1 = 7 - (x & 7);
+					color = (vm.video.VRAM[vidptr] >> x1) & 1;
+					color += (((vm.video.VRAM[0x10000 + vidptr] >> x1) & 1) << 1);
+					color += (((vm.video.VRAM[0x20000 + vidptr] >> x1) & 1) << 2);
+					color += (((vm.video.VRAM[0x30000 + vidptr] >> x1) & 1) << 3);
+					renderSurface->set(x, y, color);
+				}
+			break;
+		case 0xE:
+			break;
+		case 0x10:
+			nativeWidth = 640;
+			nativeHeight = 350;
+			for (y = 0; y < 350; y++)
+				for (x = 0; x < 640; x++) {
+					vidptr = y * 80 + (x >> 3);
+					x1 = 7 - (x & 7);
+					color = (vm.video.VRAM[vidptr] >> x1) & 1;
+					color |= (((vm.video.VRAM[0x10000 + vidptr] >> x1) & 1) << 1);
+					color |= (((vm.video.VRAM[0x20000 + vidptr] >> x1) & 1) << 2);
+					color |= (((vm.video.VRAM[0x30000 + vidptr] >> x1) & 1) << 3);
+					renderSurface->set(x, y, color);
+				}
+			break;
+		case 0x12:
+			nativeWidth = 640;
+			nativeHeight = 480;
+			for (y = 0; y < nativeHeight; y++)
+				for (x = 0; x < nativeWidth; x++) {
+					vidptr = y * 80 + (x / 8);
+					color = (vm.video.VRAM[vidptr] >> (~x & 7)) & 1;
+					color |= ((vm.video.VRAM[vidptr + 0x10000] >> (~x & 7)) & 1) << 1;
+					color |= ((vm.video.VRAM[vidptr + 0x20000] >> (~x & 7)) & 1) << 2;
+					color |= ((vm.video.VRAM[vidptr + 0x30000] >> (~x & 7)) & 1) << 3;
+					renderSurface->set(x, y, color);
+				}
+			break;
+		case 0x13:
+			if (vm.video.vtotal == 11) { //ugly hack to show Flashback at the proper resolution
+				nativeWidth = 256;
+				nativeHeight = 224;
+			}
+			else {
 				nativeWidth = 320;
 				nativeHeight = 200;
-				usepal = (portram[0x3D9]>>5) & 1;
-				intensity = ( (portram[0x3D9]>>4) & 1) << 3;
-				for (y=0; y<200; y++) {
-						for (x=0; x<320; x++) {
-								charx = x;
-								chary = y;
-								vidptr = vm.video.videobase + ( (chary>>1) * 80) + ( (chary & 1) * 8192) + (charx >> 2);
-								curpixel = RAM[vidptr];
-								switch (charx & 3) {
-										case 3:
-											curpixel = curpixel & 3;
-											break;
-										case 2:
-											curpixel = (curpixel>>2) & 3;
-											break;
-										case 1:
-											curpixel = (curpixel>>4) & 3;
-											break;
-										case 0:
-											curpixel = (curpixel>>6) & 3;
-											break;
-									}
-								if (vm.video.vidmode==4) {
-										curpixel = curpixel * 2 + usepal + intensity;
-										if (curpixel == (usepal + intensity) )  curpixel = vm.video.cgabg;
-										color = curpixel;
-										prestretch[y][x] = color;
-									}
-								else {
-										curpixel = curpixel * 63;
-										color = curpixel;
-										prestretch[y][x] = color;
-									}
-							}
-					}
-				break;
-			case 6:
-				nativeWidth = 640;
-				nativeHeight = 200;
-				for (y=0; y<400; y+=2) {
-						for (x=0; x<640; x++) {
-								charx = x;
-								chary = y >> 1;
-								vidptr = vm.video.videobase + ( (chary>>1) * 80) + ( (chary&1) * 8192) + (charx>>3);
-								curpixel = (RAM[vidptr]>> (7- (charx&7) ) ) &1;
-								color = curpixel*15;
-								prestretch[y][x] = color;
-								prestretch[y+1][x] = color;
-							}
-					}
-				break;
-			case 127:
-				nativeWidth = 720;
-				nativeHeight = 348;
-				for (y=0; y<348; y++) {
-						for (x=0; x<720; x++) {
-								charx = x;
-								chary = y>>1;
-								vidptr = vm.video.videobase + ( (y & 3) << 13) + (y >> 2) *90 + (x >> 3);
-								curpixel = (RAM[vidptr]>> (7- (charx&7) ) ) &1;
-#ifdef __BIG_ENDIAN__
-								if (curpixel) color = 0xFF;
-#else
-								if (curpixel) color = 0xff;
-#endif
-								else color = 0x00;
-								prestretch[y][x] = color;
-							}
-					}
-				break;
-			case 0x8: //160x200 16-color (PCjr)
-				nativeWidth = 640; //fix this
-				nativeHeight = 400; //part later
-				for (y=0; y<400; y++)
-					for (x=0; x<640; x++) {
-							vidptr = 0xB8000 + (y>>2) *80 + (x>>3) + ( (y>>1) &1) *8192;
-							if ( ( (x>>1) &1) ==0) color = RAM[vidptr] >> 4;
-							else color = RAM[vidptr] & 15;
-							prestretch[y][x] = color;
-						}
-				break;
-			case 0x9: //320x200 16-color (Tandy/PCjr)
-				nativeWidth = 640; //fix this
-				nativeHeight = 400; //part later
-				for (y=0; y<400; y++)
-					for (x=0; x<640; x++) {
-							vidptr = 0xB8000 + (y>>3) *160 + (x>>2) + ( (y>>1) &3) *8192;
-							if ( ( (x>>1) &1) ==0) color = RAM[vidptr] >> 4;
-							else color = RAM[vidptr] & 15;
-							prestretch[y][x] = color;
-						}
-				break;
-			case 0xD:
-			case 0xE:
-				nativeWidth = 640; //fix this
-				nativeHeight = 400; //part later
-				for (y=0; y<400; y++)
-					for (x=0; x<640; x++) {
-							divx = x>>1;
-							divy = y>>1;
-							vidptr = divy*40 + (divx>>3);
-							x1 = 7 - (divx & 7);
-							color = (vm.video.VRAM[vidptr] >> x1) & 1;
-							color += ( ( (vm.video.VRAM[0x10000 + vidptr] >> x1) & 1) << 1);
-							color += ( ( (vm.video.VRAM[0x20000 + vidptr] >> x1) & 1) << 2);
-							color += ( ( (vm.video.VRAM[0x30000 + vidptr] >> x1) & 1) << 3);
-							prestretch[y][x] = color;
-						}
-				break;
-			case 0x10:
-				nativeWidth = 640;
-				nativeHeight = 350;
-				for (y=0; y<350; y++)
-					for (x=0; x<640; x++) {
-							vidptr = y*80 + (x>>3);
-							x1 = 7 - (x & 7);
-							color = (vm.video.VRAM[vidptr] >> x1) & 1;
-							color |= ( ( (vm.video.VRAM[0x10000 + vidptr] >> x1) & 1) << 1);
-							color |= ( ( (vm.video.VRAM[0x20000 + vidptr] >> x1) & 1) << 2);
-							color |= ( ( (vm.video.VRAM[0x30000 + vidptr] >> x1) & 1) << 3);
-							prestretch[y][x] = color;
-						}
-				break;
-			case 0x12:
-				nativeWidth = 640;
-				nativeHeight = 480;
-				vgapage = ( (uint32_t)vm.video.VGA_CRTC[0xC]<<8) + (uint32_t)vm.video.VGA_CRTC[0xD];
-				for (y=0; y<nativeHeight; y++)
-					for (x=0; x<nativeWidth; x++) {
-							vidptr = y*80 + (x/8);
-							color  = (vm.video.VRAM[vidptr] >> (~x & 7) ) & 1;
-							color |= ( (vm.video.VRAM[vidptr+0x10000] >> (~x & 7) ) & 1) << 1;
-							color |= ( (vm.video.VRAM[vidptr+0x20000] >> (~x & 7) ) & 1) << 2;
-							color |= ( (vm.video.VRAM[vidptr+0x30000] >> (~x & 7) ) & 1) << 3;
-							prestretch[y][x] = color;
-						}
-				break;
-			case 0x13:
-				if (vm.video.vtotal == 11) { //ugly hack to show Flashback at the proper resolution
-						nativeWidth = 256;
-						nativeHeight = 224;
-					}
-				else {
-						nativeWidth = 320;
-						nativeHeight = 200;
-					}
-				if (vm.video.VGA_SC[4] & 6) planemode = 1;
-				else planemode = 0;
-				vgapage = ( (uint32_t)vm.video.VGA_CRTC[0xC]<<8) + (uint32_t)vm.video.VGA_CRTC[0xD];
-				//vgapage = (( (uint32_t) VGA_CRTC[0xC]<<8) + (uint32_t) VGA_CRTC[0xD]) << 2;
-				for (y=0; y<nativeHeight; y++)
-					for (x=0; x<nativeWidth; x++) {
-							if (!planemode) color = RAM[vm.video.videobase + ((vgapage + y*nativeWidth + x) & 0xFFFF) ];
-							//if (!planemode) color = palettevga[RAM[videobase + y*nw + x]];
-							else {
-									vidptr = y*nativeWidth + x;
-									vidptr = vidptr/4 + (x & 3) *0x10000;
-									vidptr = vidptr + vgapage - (vm.video.VGA_ATTR[0x13] & 15);
-									color = vm.video.VRAM[vidptr];
-								}
-							prestretch[y][x] = color;
-						}
-		}
+			}
+			if (vm.video.VGA_SC[4] & 6) 
+				planemode = 1;
+			else 
+				planemode = 0;
 
-	if (vm.video.vidgfxmode==0) {
-			if (vm.video.cursorvisible) {
-					curheight = 2;
-					if (vm.video.cols==80) blockw = 8;
-					else blockw = 16;
-					x1 = vm.video.cursx * blockw;
-					y1 = vm.video.cursy * 8 + 8 - curheight;
-					for (y=y1*2; y<=y1*2+curheight-1; y++)
-						for (x=x1; x<=x1+blockw-1; x++) {
-								color = RAM[vm.video.videobase+ vm.video.cursy*vm.video.cols*2+ vm.video.cursx*2+1]&15;
-								prestretch[y&1023][x&1023] = color;
-							}
+			for (y = 0; y < nativeHeight; y++)
+			{
+				for (x = 0; x < nativeWidth; x++) 
+				{
+					if (!planemode)
+					{
+						//color = RAM[vm.video.videobase + ((vm.video.vgapage + y*nativeWidth + x) & 0xFFFF)];
+					}
+					else 
+					{
+						vidptr = y*nativeWidth + x;
+						vidptr = vidptr / 4 + (x & 3) * 0x10000;
+						vidptr = vidptr + vm.video.vgapage - (vm.video.VGA_ATTR[0x13] & 15);
+						color = vm.video.VRAM[vidptr];
+						renderSurface->set(x, y, color);
+					}
 				}
+			}
 		}
-
 	}
+
+	if (renderSurface == hostSurface)
+		return;
 
 	if (vm.config.noSmooth) 
 	{
-		if (nativeWidth == fb->getWidth() && nativeHeight == fb->getHeight())
+		if (nativeWidth == hostSurface->width && nativeHeight == hostSurface->height)
 			simpleBlit();
-		if ( ((nativeWidth << 1) == fb->getWidth()) && ((nativeHeight << 1) == fb->getHeight()) ) 
+		if ( ((nativeWidth << 1) == hostSurface->width) && ((nativeHeight << 1) == hostSurface->height) ) 
 			doubleBlit ();
 		else 
 			roughBlit ();
 	}
 	else stretchBlit ();
+}
+
+RenderSurface* RenderSurface::create(uint32_t inWidth, uint32_t inHeight)
+{
+	RenderSurface* newSurface = new RenderSurface();
+	newSurface->width = newSurface->pitch = inWidth;
+	newSurface->height = inHeight;
+	newSurface->pixels = new uint8_t[inWidth * inHeight];
+	return newSurface;
+}
+
+void RenderSurface::destroy(RenderSurface* surface)
+{
+	delete[] surface->pixels;
+	delete surface;
 }
 

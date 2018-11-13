@@ -21,21 +21,20 @@
 #pragma once
 
 #include "../../src/faux86/HostSystemInterface.h"
+#include "../../src/faux86/Renderer.h"
 
 struct SDL_Surface;
 
 namespace Faux86
 {
 	class VM;
-
+	
 	class SDLFrameBufferInterface : public FrameBufferInterface
 	{
 	public:
 		virtual void init(uint32_t desiredWidth, uint32_t desiredHeight) override;
-		virtual uint32_t getWidth() override;
-		virtual uint32_t getHeight() override;
-		virtual uint32_t getPitch() override;
-		virtual uint8_t* getPixels() override;
+
+		virtual RenderSurface* getSurface() override;
 
 		virtual void setPalette(Palette* palette) override;
 
@@ -44,6 +43,7 @@ namespace Faux86
 
 	private:
 		SDL_Surface* surface;
+		RenderSurface renderSurface;
 	};
 
 	class SDLTimerInterface : public TimerInterface

@@ -196,8 +196,7 @@ void Video::handleInterrupt()
 				RAM[0x44A] = (uint8_t) cols;
 				RAM[0x44B] = 0;
 				RAM[0x484] = (uint8_t) (rows - 1);
-				cursx = 0;
-				cursy = 0;
+				vm.renderer.setCursorPosition(0, 0);
 				if ( (regs.byteregs[regal] & 0x80) == 0x00) {
 						MemUtils::memset (&RAM[0xA0000], 0, 0x1FFFF);
 						MemUtils::memset (VRAM, 0, VRAMSize);
@@ -621,13 +620,13 @@ bool Video::portWriteHandler(uint16_t portnum, uint8_t value)
 				cursorposition = (cursorposition&0xFF) | (value<<8);
 			else if (portram[0x3D4]==0xF) 
 				cursorposition = (cursorposition&0xFF00) |value;
-			cursy = cursorposition/cols;
-			cursx = cursorposition%cols;
+			vm.renderer.setCursorPosition(cursorposition%cols, cursorposition / cols);
 			if (portram[0x3D4] == 6) 
 			{
 				vtotal = value | ( ( (uint16_t) VGA_GC[7] & 1) << 8) | ( ( (VGA_GC[7] & 32) ? 1 : 0) << 9);
 				//printf("Vertical total: %u\n", vtotal);
 			}
+			vgapage = ((uint32_t)VGA_CRTC[0xC] << 8) + (uint32_t)VGA_CRTC[0xD];
 			break;
 		case 0x3CF:
 			VGA_GC[portram[0x3CE]] = value;

@@ -22,10 +22,12 @@
 #include <circle/usb/usbkeyboard.h>
 #include <circle/devicenameservice.h>
 #include <circle/string.h>
+#include <circle/interrupt.h>
 #include "CircleHostInterface.h"
 #include "Keymap.h"
 #include "VM.h"
 #include "kernel.h"
+#include "PWMSound.h"
 
 using namespace Faux86;
 
@@ -65,51 +67,20 @@ void CircleFrameBufferInterface::init(uint32_t desiredWidth, uint32_t desiredHei
 	frameBuffer->Initialize();
 #else
 	log(LogVerbose, "Creating temporary buffer");
-	fakeFrameBuffer = new uint8_t[640 * 400];
-	log(LogVerbose, "Created at %x", (uint32_t)fakeFrameBuffer);
+	surface = RenderSurface::create(640, 400);
+	log(LogVerbose, "Created at %x", (uint32_t)surface.pixels);
 	
 	for(int n = 0; n < 640 * 400; n++)
 	{
-		fakeFrameBuffer[n] = 0xcd;
+		surface.pixels[n] = 0xcd;
 	}
 	log(LogVerbose, "Cleared!");
 #endif
 }
 
-uint32_t CircleFrameBufferInterface::getWidth()
+RenderSurface* CircleFrameBufferInterface::getSurface()
 { 
-#if FAKE_FRAMEBUFFER
-	return 640;
-#else
-	return frameBuffer->GetWidth();
-#endif
-}
-
-uint32_t CircleFrameBufferInterface::getHeight()
-{
-#if FAKE_FRAMEBUFFER
-	return 400;
-#else
-	return frameBuffer->GetHeight();
-#endif
-}
-
-uint32_t CircleFrameBufferInterface::getPitch()
-{
-#if FAKE_FRAMEBUFFER
-	return 640;
-#else
-	return frameBuffer->GetPitch();
-#endif
-}
-
-uint8_t* CircleFrameBufferInterface::getPixels()
-{
-#if FAKE_FRAMEBUFFER
-	return fakeFrameBuffer;
-#else
-	return (uint8_t*) frameBuffer->GetBuffer();
-#endif
+	return &surface;
 }
 
 void CircleFrameBufferInterface::setPalette(Palette* palette)
@@ -126,12 +97,14 @@ void CircleFrameBufferInterface::setPalette(Palette* palette)
 
 void CircleAudioInterface::init(VM& vm)
 {
-	// TODO
+	pwmSound = new PWMSound(vm.audio, &interruptSystem, vm.audio.sampleRate);
+	pwmSound->Start();
 }
 
 void CircleAudioInterface::shutdown()
 {
-	// TODO
+	pwmSound->Cancel();
+	delete pwmSound;
 }
 
 CircleTimerInterface::CircleTimerInterface()
@@ -159,7 +132,8 @@ DiskInterface* CircleHostInterface::openFile(const char* filename)
 	return nullptr;
 } 
 
-CircleHostInterface::CircleHostInterface(class CDeviceNameService& deviceNameService)
+CircleHostInterface::CircleHostInterface(CDeviceNameService& deviceNameService, CInterruptSystem& interruptSystem)
+: audio(interruptSystem)
 {
 	instance = this;
 	

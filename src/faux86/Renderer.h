@@ -23,9 +23,38 @@
 #include "TaskManager.h"
 #include "mutex.h"
 
+#ifdef _WIN32
+#include <assert.h>
+#endif
+
 namespace Faux86
 {
 	class VM;
+
+	struct RenderSurface
+	{
+		static RenderSurface* create(uint32_t inWidth, uint32_t inHeight);
+		static void destroy(RenderSurface* surface);
+
+		inline void set(uint32_t x, uint32_t y, uint8_t col)
+		{
+#ifdef _WIN32
+			assert(x < width && y < height);
+#endif
+			pixels[y * pitch + x] = col;
+		}
+
+		inline uint8_t get(uint32_t x, uint32_t y)
+		{
+#ifdef _WIN32
+			assert(x < width && y < height);
+#endif
+			return pixels[y * pitch + x];
+		}
+
+		uint8_t* pixels;
+		uint32_t width, height, pitch;
+	};
 
 	class Renderer
 	{
@@ -38,8 +67,16 @@ namespace Faux86
 		void init();
 		void markScreenModeChanged(uint32_t newWidth, uint32_t newHeight);
 		void draw();
+		void onMemoryWrite(uint32_t address, uint8_t value);
+		void setCursorPosition(uint32_t x, uint32_t y);
+
+		RenderSurface* renderSurface = nullptr;
+		RenderSurface* hostSurface = nullptr;
 
 	private:
+		void markTextDirty(uint32_t x, uint32_t y);
+		void refreshTextMode();
+		void renderTextMode();		
 		void createScaleMap();
 
 		void simpleBlit();
@@ -49,8 +86,15 @@ namespace Faux86
 
 		bool screenModeChanged = false;
 		uint32_t nativeWidth = 640, nativeHeight = 400;
-		uint8_t prestretch[1024][1024];
+		//uint8_t prestretch[1024][1024];
 		uint32_t *scalemap = nullptr;
+
+		uint32_t cursorX = 0, cursorY = 0;
+		bool cursorVisible = true;
+
+		static constexpr unsigned MaxColumns = 80;
+		static constexpr unsigned MaxRows = 25;
+		uint8_t textModeDirtyFlag[MaxColumns * MaxRows];
 
 		uint64_t totalframes = 0;
 		char windowtitle[128];

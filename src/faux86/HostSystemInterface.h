@@ -38,15 +38,13 @@ namespace Faux86
 	class DiskInterface;
 	class VM;
 	class Palette;
+	struct RenderSurface;
 
 	class FrameBufferInterface
 	{
 	public:
 		virtual void init(uint32_t desiredWidth, uint32_t desiredHeight) = 0;
-		virtual uint32_t getWidth() = 0;
-		virtual uint32_t getHeight() = 0;
-		virtual uint32_t getPitch() = 0;
-		virtual uint8_t* getPixels() = 0;
+		virtual RenderSurface* getSurface() = 0;
 
 		virtual void setPalette(Palette* palette) = 0;
 
