@@ -211,6 +211,7 @@ void Video::handleInterrupt()
 						case 0x13:
 						case 0x4:
 						case 0x5:
+						case 0xD:
 							vm.renderer.markScreenModeChanged(320, 200);
 							break;
 						default:

@@ -44,6 +44,7 @@ namespace Faux86
 	{
 	public:
 		virtual void init(uint32_t desiredWidth, uint32_t desiredHeight) = 0;
+		virtual void resize(uint32_t desiredWidth, uint32_t desiredHeight) {}
 		virtual RenderSurface* getSurface() = 0;
 
 		virtual void setPalette(Palette* palette) = 0;

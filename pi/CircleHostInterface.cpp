@@ -61,11 +61,11 @@ void Faux86::log(Faux86::LogChannel channel, const char* message, ...)
 }
 
 void CircleFrameBufferInterface::init(uint32_t desiredWidth, uint32_t desiredHeight)
-{
+{	
 #if !FAKE_FRAMEBUFFER
 	frameBuffer = new CBcmFrameBuffer (desiredWidth, desiredHeight, 8);
-
 	frameBuffer->Initialize();
+
 	surface = new RenderSurface();
 	surface->width = frameBuffer->GetWidth();
 	surface->height = frameBuffer->GetHeight();
@@ -81,6 +81,25 @@ void CircleFrameBufferInterface::init(uint32_t desiredWidth, uint32_t desiredHei
 		surface->pixels[n] = 0xcd;
 	}
 	log(LogVerbose, "Cleared!");
+#endif
+}
+
+void CircleFrameBufferInterface::resize(uint32_t desiredWidth, uint32_t desiredHeight)
+{
+	if(surface->width == desiredWidth && surface->height == desiredHeight)
+		return;
+#if !FAKE_FRAMEBUFFER
+	delete frameBuffer;
+	
+	CTimer::Get()->SimpleMsDelay(1000);
+	
+	frameBuffer = new CBcmFrameBuffer (desiredWidth, desiredHeight, 8);
+	frameBuffer->Initialize();
+	
+	surface->width = frameBuffer->GetWidth();
+	surface->height = frameBuffer->GetHeight();
+	surface->pitch = frameBuffer->GetPitch();
+	surface->pixels = (uint8_t*) frameBuffer->GetBuffer();
 #endif
 }
 

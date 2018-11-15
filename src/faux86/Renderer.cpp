@@ -67,13 +67,17 @@ void Renderer::init()
 	fb = &vm.config.hostSystemInterface->getFrameBuffer();
 
 	fb->init(OUTPUT_FRAMEBUFFER_WIDTH, OUTPUT_FRAMEBUFFER_HEIGHT);
-
+	//fb->init(320, 200);
+	//fb->init(1920, 1080);
 	//fb->init(1024, 1024);
 
 	hostSurface = fb->getSurface();
 
+#ifdef _WIN32 
 	renderSurface = RenderSurface::create(1024, 1024);
-	//renderSurface = hostSurface;
+#else
+	renderSurface = hostSurface;
+#endif
 
 	createScaleMap();
 
@@ -284,14 +288,9 @@ void Renderer::simpleBlit()
 	{
 		//ProfileBlock block(vm.timing, "Renderer::simpleBlit inner");
 
-		uint8_t* pixels = hostSurface->pixels;
-		uint32_t pitch = hostSurface->pitch;
-		uint32_t width = hostSurface->width;
-		uint32_t height = hostSurface->height;
-
-		for (uint32_t y = 0; y < height; y++)
+		for (uint32_t y = 0; y < hostSurface->height; y++)
 		{
-			MemUtils::memcpy(&pixels[y * pitch], &renderSurface->pixels[y * renderSurface->pitch], width);
+			MemUtils::memcpy(hostSurface->pixels + (y * hostSurface->pitch), renderSurface->pixels + (y * renderSurface->pitch), hostSurface->width);
 		}
 	}
 
@@ -382,7 +381,7 @@ void Renderer::onMemoryWrite(uint32_t address, uint8_t value)
 	}
 	else
 	{
-		switch (vm.video.vidmode)
+		/*switch (vm.video.vidmode)
 		{
 			case 0x13:	// 320x200 256 colour
 			{
@@ -404,7 +403,7 @@ void Renderer::onMemoryWrite(uint32_t address, uint8_t value)
 				}
 			}
 			break;
-		}
+		}*/
 	}
 
 }
@@ -479,7 +478,7 @@ void Renderer::renderTextMode()
 	}
 
 	// Draw cursor
-	if (vm.video.cursorvisible) 
+	if (vm.video.cursorvisible && cursorX < vm.video.cols && cursorY < vm.video.rows) 
 	{
 		uint32_t curheight = 2;
 		uint32_t x1 = cursorX * glyphWidth;
@@ -509,6 +508,7 @@ void Renderer::draw ()
 
 	if (screenModeChanged)
 	{
+		fb->resize(nativeWidth, nativeHeight);
 		createScaleMap();
 		screenModeChanged = false;
 	}
@@ -530,14 +530,14 @@ void Renderer::draw ()
 		case 3:
 		case 7:
 		case 0x82:
-			nativeWidth = 640;
-			nativeHeight = 400;
+			//nativeWidth = 640;
+			//nativeHeight = 400;
 			renderTextMode();
 			break;
 		case 4:
 		case 5:
-			nativeWidth = 320;
-			nativeHeight = 200;
+			//nativeWidth = 320;
+			//nativeHeight = 200;
 			usepal = (portram[0x3D9] >> 5) & 1;
 			intensity = ((portram[0x3D9] >> 4) & 1) << 3;
 			for (y = 0; y < 200; y++) {
@@ -575,8 +575,8 @@ void Renderer::draw ()
 			}
 			break;
 		case 6:
-			nativeWidth = 640;
-			nativeHeight = 200;
+			//nativeWidth = 640;
+			//nativeHeight = 200;
 			for (y = 0; y < 400; y += 2) {
 				for (x = 0; x < 640; x++) {
 					charx = x;
@@ -590,8 +590,8 @@ void Renderer::draw ()
 			}
 			break;
 		case 127:
-			nativeWidth = 720;
-			nativeHeight = 348;
+			// nativeWidth = 720;
+			// nativeHeight = 348;
 			for (y = 0; y < 348; y++) {
 				for (x = 0; x < 720; x++) {
 					charx = x;
@@ -607,8 +607,8 @@ void Renderer::draw ()
 			}
 			break;
 		case 0x8: //160x200 16-color (PCjr)
-			nativeWidth = 640; //fix this
-			nativeHeight = 400; //part later
+			// nativeWidth = 640; //fix this
+			// nativeHeight = 400; //part later
 			for (y = 0; y < 400; y++)
 				for (x = 0; x < 640; x++) {
 					vidptr = 0xB8000 + (y >> 2) * 80 + (x >> 3) + ((y >> 1) & 1) * 8192;
@@ -618,8 +618,8 @@ void Renderer::draw ()
 				}
 			break;
 		case 0x9: //320x200 16-color (Tandy/PCjr)
-			nativeWidth = 640; //fix this
-			nativeHeight = 400; //part later
+			// nativeWidth = 640; //fix this
+			// nativeHeight = 400; //part later
 			for (y = 0; y < 400; y++)
 				for (x = 0; x < 640; x++) {
 					vidptr = 0xB8000 + (y >> 3) * 160 + (x >> 2) + ((y >> 1) & 3) * 8192;
@@ -629,8 +629,8 @@ void Renderer::draw ()
 				}
 			break;
 		case 0xD:
-			nativeWidth = 320;
-			nativeHeight = 200;
+			// nativeWidth = 320;
+			// nativeHeight = 200;
 			for (y = 0; y < 200; y++)
 				for (x = 0; x < 320; x++) {
 					vidptr = y * 40 + (x >> 3);
@@ -645,8 +645,8 @@ void Renderer::draw ()
 		case 0xE:
 			break;
 		case 0x10:
-			nativeWidth = 640;
-			nativeHeight = 350;
+			// nativeWidth = 640;
+			// nativeHeight = 350;
 			for (y = 0; y < 350; y++)
 				for (x = 0; x < 640; x++) {
 					vidptr = y * 80 + (x >> 3);
@@ -659,8 +659,8 @@ void Renderer::draw ()
 				}
 			break;
 		case 0x12:
-			nativeWidth = 640;
-			nativeHeight = 480;
+			// nativeWidth = 640;
+			// nativeHeight = 480;
 			for (y = 0; y < nativeHeight; y++)
 				for (x = 0; x < nativeWidth; x++) {
 					vidptr = y * 80 + (x / 8);
@@ -673,12 +673,12 @@ void Renderer::draw ()
 			break;
 		case 0x13:
 			if (vm.video.vtotal == 11) { //ugly hack to show Flashback at the proper resolution
-				nativeWidth = 256;
-				nativeHeight = 224;
+				//nativeWidth = 256;
+				//nativeHeight = 224;
 			}
 			else {
-				nativeWidth = 320;
-				nativeHeight = 200;
+				//nativeWidth = 320;
+				//nativeHeight = 200;
 			}
 			if (vm.video.VGA_SC[4] & 6) 
 				planemode = 1;
@@ -691,7 +691,8 @@ void Renderer::draw ()
 				{
 					if (!planemode)
 					{
-						//color = RAM[vm.video.videobase + ((vm.video.vgapage + y*nativeWidth + x) & 0xFFFF)];
+						color = RAM[vm.video.videobase + ((vm.video.vgapage + y*nativeWidth + x) & 0xFFFF)];
+						renderSurface->set(x, y, color);
 					}
 					else 
 					{
@@ -713,7 +714,7 @@ void Renderer::draw ()
 	{
 		if (nativeWidth == hostSurface->width && nativeHeight == hostSurface->height)
 			simpleBlit();
-		if ( ((nativeWidth << 1) == hostSurface->width) && ((nativeHeight << 1) == hostSurface->height) ) 
+		else if ( ((nativeWidth << 1) == hostSurface->width) && ((nativeHeight << 1) == hostSurface->height) ) 
 			doubleBlit ();
 		else 
 			roughBlit ();
