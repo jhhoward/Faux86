@@ -49,8 +49,7 @@ namespace Faux86
 
 		virtual void setPalette(Palette* palette) = 0;
 
-		virtual bool lock() { return true; }
-		virtual void unlock() {}
+		virtual void present() {}
 	};
 
 	class TimerInterface

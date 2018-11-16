@@ -59,7 +59,10 @@ Renderer::Renderer(VM& inVM)
 Renderer::~Renderer()
 {
 	delete[] scalemap;
-	RenderSurface::destroy(renderSurface);
+	if (renderSurface && renderSurface != hostSurface)
+	{
+		RenderSurface::destroy(renderSurface);
+	}
 }
 
 void Renderer::init()
@@ -73,7 +76,7 @@ void Renderer::init()
 
 	hostSurface = fb->getSurface();
 
-#ifdef _WIN32 
+#ifdef DOUBLE_BUFFER
 	renderSurface = RenderSurface::create(1024, 1024);
 #else
 	renderSurface = hostSurface;
@@ -282,9 +285,6 @@ void Renderer::simpleBlit()
 {
 	//ProfileBlock block(vm.timing, "Renderer::simpleBlit");
 
-	if (!fb->lock())
-		return;
-
 	{
 		//ProfileBlock block(vm.timing, "Renderer::simpleBlit inner");
 
@@ -293,18 +293,10 @@ void Renderer::simpleBlit()
 			MemUtils::memcpy(hostSurface->pixels + (y * hostSurface->pitch), renderSurface->pixels + (y * renderSurface->pitch), hostSurface->width);
 		}
 	}
-
-	{		
-		fb->unlock();
-	}
 }
 
 void Renderer::roughBlit () 
 {
-	if (!fb->lock())
-		return;
-
-
 	uint32_t srcx, srcy, dstx, dsty, scalemapptr;
 	uint8_t* pixels = hostSurface->pixels;
 	uint32_t pitch = hostSurface->pitch;
@@ -325,9 +317,6 @@ void Renderer::roughBlit ()
 			}
 		}
 	}
-
-
-	fb->unlock();
 }
 
 /* NOTE: doubleblit is only used when smoothing is not enabled, and the SDL window size
@@ -347,9 +336,6 @@ void Renderer::doubleBlit ()
 	uint32_t width = hostSurface->width;
 	uint32_t height = hostSurface->height;
 
-	if(!fb->lock())
-		return;
-
 	for (dsty=0; dsty<height; dsty += 2) 
 	{
 		srcy = (uint32_t) (dsty >> 1);
@@ -364,8 +350,6 @@ void Renderer::doubleBlit ()
 			pixels [ofs++] = curcolor;
 		}
 	}
-
-	fb->unlock();
 }
 
 void Renderer::onMemoryWrite(uint32_t address, uint8_t value)
@@ -530,12 +514,14 @@ void Renderer::draw ()
 		case 3:
 		case 7:
 		case 0x82:
+			assert(nativeWidth == 640 && nativeHeight == 400);
 			//nativeWidth = 640;
 			//nativeHeight = 400;
 			renderTextMode();
 			break;
 		case 4:
 		case 5:
+			assert(nativeWidth == 320 && nativeHeight == 200);
 			//nativeWidth = 320;
 			//nativeHeight = 200;
 			usepal = (portram[0x3D9] >> 5) & 1;
@@ -575,6 +561,7 @@ void Renderer::draw ()
 			}
 			break;
 		case 6:
+			assert(nativeWidth == 640 && nativeHeight == 400);
 			//nativeWidth = 640;
 			//nativeHeight = 200;
 			for (y = 0; y < 400; y += 2) {
@@ -590,6 +577,7 @@ void Renderer::draw ()
 			}
 			break;
 		case 127:
+			assert(nativeWidth == 720 && nativeHeight == 348);
 			// nativeWidth = 720;
 			// nativeHeight = 348;
 			for (y = 0; y < 348; y++) {
@@ -607,6 +595,7 @@ void Renderer::draw ()
 			}
 			break;
 		case 0x8: //160x200 16-color (PCjr)
+			assert(nativeWidth == 640 && nativeHeight == 400);
 			// nativeWidth = 640; //fix this
 			// nativeHeight = 400; //part later
 			for (y = 0; y < 400; y++)
@@ -618,6 +607,7 @@ void Renderer::draw ()
 				}
 			break;
 		case 0x9: //320x200 16-color (Tandy/PCjr)
+			assert(nativeWidth == 640 && nativeHeight == 400);
 			// nativeWidth = 640; //fix this
 			// nativeHeight = 400; //part later
 			for (y = 0; y < 400; y++)
@@ -629,6 +619,7 @@ void Renderer::draw ()
 				}
 			break;
 		case 0xD:
+			assert(nativeWidth == 320 && nativeHeight == 200);
 			// nativeWidth = 320;
 			// nativeHeight = 200;
 			for (y = 0; y < 200; y++)
@@ -645,6 +636,7 @@ void Renderer::draw ()
 		case 0xE:
 			break;
 		case 0x10:
+			assert(nativeWidth == 640 && nativeHeight == 350);
 			// nativeWidth = 640;
 			// nativeHeight = 350;
 			for (y = 0; y < 350; y++)
@@ -659,6 +651,7 @@ void Renderer::draw ()
 				}
 			break;
 		case 0x12:
+			assert(nativeWidth == 640 && nativeHeight == 480);
 			// nativeWidth = 640;
 			// nativeHeight = 480;
 			for (y = 0; y < nativeHeight; y++)
@@ -672,6 +665,7 @@ void Renderer::draw ()
 				}
 			break;
 		case 0x13:
+			assert(nativeWidth == 320 && nativeHeight == 200);
 			if (vm.video.vtotal == 11) { //ugly hack to show Flashback at the proper resolution
 				//nativeWidth = 256;
 				//nativeHeight = 224;
@@ -685,16 +679,18 @@ void Renderer::draw ()
 			else 
 				planemode = 0;
 
-			for (y = 0; y < nativeHeight; y++)
+			if (!planemode)
 			{
-				for (x = 0; x < nativeWidth; x++) 
+				for (y = 0; y < nativeHeight; y++)
 				{
-					if (!planemode)
-					{
-						color = RAM[vm.video.videobase + ((vm.video.vgapage + y*nativeWidth + x) & 0xFFFF)];
-						renderSurface->set(x, y, color);
-					}
-					else 
+					MemUtils::memcpy(&renderSurface->pixels[y * renderSurface->pitch], &RAM[vm.video.videobase + ((vm.video.vgapage + y*nativeWidth) & 0xFFFF)], nativeWidth);
+				}
+			}
+			else
+			{
+				for (y = 0; y < nativeHeight; y++)
+				{
+					for (x = 0; x < nativeWidth; x++)
 					{
 						vidptr = y*nativeWidth + x;
 						vidptr = vidptr / 4 + (x & 3) * 0x10000;
@@ -707,19 +703,21 @@ void Renderer::draw ()
 		}
 	}
 
-	if (renderSurface == hostSurface)
-		return;
-
-	if (vm.config.noSmooth) 
+	if (renderSurface != hostSurface)
 	{
-		if (nativeWidth == hostSurface->width && nativeHeight == hostSurface->height)
-			simpleBlit();
-		else if ( ((nativeWidth << 1) == hostSurface->width) && ((nativeHeight << 1) == hostSurface->height) ) 
-			doubleBlit ();
-		else 
-			roughBlit ();
+		if (vm.config.noSmooth)
+		{
+			if (nativeWidth == hostSurface->width && nativeHeight == hostSurface->height)
+				simpleBlit();
+			else if (((nativeWidth << 1) == hostSurface->width) && ((nativeHeight << 1) == hostSurface->height))
+				doubleBlit();
+			else
+				roughBlit();
+		}
+		else stretchBlit();
 	}
-	else stretchBlit ();
+
+	fb->present();
 }
 
 RenderSurface* RenderSurface::create(uint32_t inWidth, uint32_t inHeight)

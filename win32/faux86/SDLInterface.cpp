@@ -27,6 +27,7 @@
 #include "SDLInterface.h"
 #include "StdioDiskInterface.h"
 #include "../../src/faux86/VM.h"
+#include "../../pi/Keymap.h"
 
 using namespace Faux86;
 
@@ -82,11 +83,42 @@ DiskInterface* SDLHostSystemInterface::openFile(const char* filename)
 
 void SDLFrameBufferInterface::init(uint32_t desiredWidth, uint32_t desiredHeight)
 {
-	surface = SDL_SetVideoMode(desiredWidth, desiredHeight, 8, SDL_HWSURFACE);
+	desiredWidth = 800;
+	desiredHeight = 600;
+
+	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+
+	SDL_CreateWindowAndRenderer(desiredWidth, desiredHeight, SDL_WINDOW_RESIZABLE, &appWindow, &appRenderer);
+	SDL_SetWindowTitle(appWindow, "Faux86");
+	SDL_RenderSetLogicalSize(appRenderer, desiredWidth, desiredHeight);
+
+	surface = SDL_CreateRGBSurface(0, desiredWidth, desiredHeight, 8, 0, 0, 0, 0);
+	screenSurface = SDL_CreateRGBSurface(0, desiredWidth, desiredHeight, 32, 0, 0, 0, 0);
+	screenTexture = SDL_CreateTexture(appRenderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, screenSurface->w, screenSurface->h);
+
 	renderSurface.width = surface->w;
 	renderSurface.pitch = surface->pitch;
 	renderSurface.height = surface->h;
 	renderSurface.pixels = (uint8_t*) surface->pixels;
+}
+
+void SDLFrameBufferInterface::resize(uint32_t desiredWidth, uint32_t desiredHeight)
+{
+	if (renderSurface.width == desiredWidth && renderSurface.height == desiredHeight)
+		return;
+
+	SDL_FreeSurface(surface);
+	SDL_FreeSurface(screenSurface);
+	SDL_DestroyTexture(screenTexture);
+
+	surface = SDL_CreateRGBSurface(0, desiredWidth, desiredHeight, 8, 0, 0, 0, 0);
+	screenSurface = SDL_CreateRGBSurface(0, desiredWidth, desiredHeight, 32, 0, 0, 0, 0);
+	screenTexture = SDL_CreateTexture(appRenderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, screenSurface->w, screenSurface->h);
+
+	renderSurface.width = surface->w;
+	renderSurface.pitch = surface->pitch;
+	renderSurface.height = surface->h;
+	renderSurface.pixels = (uint8_t*)surface->pixels;
 }
 
 RenderSurface* SDLFrameBufferInterface::getSurface()
@@ -104,28 +136,21 @@ void SDLFrameBufferInterface::setPalette(Palette* palette)
 		colours[n].g = palette->colours[n].g;
 		colours[n].b = palette->colours[n].b;
 	}
-	SDL_SetPalette(surface, SDL_LOGPAL | SDL_PHYSPAL, colours, 0, 256);
+	SDL_SetPaletteColors(surface->format->palette, colours, 0, 256);
 }
 
-bool SDLFrameBufferInterface::lock()
+void SDLFrameBufferInterface::present() 
 {
-	if (SDL_MUSTLOCK(surface))
-	{
-		if (SDL_LockSurface(surface) < 0)
-			return false;
-	}
-	return true;
-}
+	SDL_BlitSurface(surface, nullptr, screenSurface, nullptr);
 
-void SDLFrameBufferInterface::unlock() 
-{
-	if (SDL_MUSTLOCK(surface))
-	{
-		SDL_UnlockSurface(surface);
-	}
+	void* pixels;
+	int pitch;
+	SDL_LockTexture(screenTexture, nullptr, &pixels, &pitch);
+	SDL_ConvertPixels(screenSurface->w, screenSurface->h, screenSurface->format->format, screenSurface->pixels, screenSurface->pitch, SDL_PIXELFORMAT_RGBA8888, pixels, pitch);
+	SDL_UnlockTexture(screenTexture);
 
-	SDL_Flip(surface);
-	//SDL_UpdateRect(surface, 0, 0, surface->w, surface->h);
+	SDL_RenderCopy(appRenderer, screenTexture, nullptr, nullptr);
+	SDL_RenderPresent(appRenderer);
 }
 
 uint64_t SDLTimerInterface::getHostFreq() 
@@ -397,19 +422,19 @@ void SDLHostSystemInterface::tick(VM& vm)
 	{
 		switch (event.type) {
 		case SDL_KEYDOWN:
-			vm.input.handleKeyDown(translatescancode(event.key.keysym.sym));
+			vm.input.handleKeyDown(usb2xtMapping[event.key.keysym.scancode]);
 
 			if (event.key.keysym.sym == SDLK_TAB)
 			{
-				SDL_WM_GrabInput(SDL_GRAB_OFF);
+				SDL_SetWindowGrab(frameBufferInterface.appWindow, SDL_FALSE);
 				SDL_ShowCursor(SDL_ENABLE);
 			}
 			break;
 		case SDL_KEYUP:
-			vm.input.handleKeyUp(translatescancode(event.key.keysym.sym));
+			vm.input.handleKeyUp(usb2xtMapping[event.key.keysym.scancode]);
 			break;
 		case SDL_MOUSEBUTTONDOWN:
-			SDL_WM_GrabInput(SDL_GRAB_ON);
+			SDL_SetWindowGrab(frameBufferInterface.appWindow, SDL_TRUE);
 			SDL_ShowCursor(SDL_DISABLE);
 			if (event.button.button == SDL_BUTTON_LEFT)
 			{
@@ -422,7 +447,7 @@ void SDLHostSystemInterface::tick(VM& vm)
 			// TODO grab mouse
 			break;
 		case SDL_MOUSEBUTTONUP:
-			if (SDL_WM_GrabInput(SDL_GRAB_QUERY) == SDL_GRAB_OFF) break;
+			if (SDL_GetWindowGrab(frameBufferInterface.appWindow) == SDL_FALSE) break;
 			if (event.button.button == SDL_BUTTON_LEFT)
 			{
 				vm.mouse.handleButtonUp(SerialMouse::ButtonType::Left);
@@ -433,7 +458,7 @@ void SDLHostSystemInterface::tick(VM& vm)
 			}
 			break;
 		case SDL_MOUSEMOTION:
-			if (SDL_WM_GrabInput(SDL_GRAB_QUERY) == SDL_GRAB_OFF) break;
+			if (SDL_GetWindowGrab(frameBufferInterface.appWindow) == SDL_FALSE) break;
 			SDL_GetRelativeMouseState(&mx, &my);
 			vm.mouse.handleMove((int8_t)mx, (int8_t)my);
 			//SDL_WarpMouse (frameBufferInterface.getWidth() / 2, frameBufferInterface.getHeight() / 2);

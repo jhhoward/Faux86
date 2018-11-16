@@ -1176,6 +1176,17 @@ void CPU::intcall86 (uint8_t intnum)
 					//log(Log, "Video interrupt 10h,9 : %c", regs.byteregs[regal]);
 					log(LogRaw, "%c", regs.byteregs[regal]);
 					break;
+				case 0x1a:
+					if (regs.byteregs[regal])
+					{
+						log(Log, "Set display information");
+					}
+					else
+					{
+						log(Log, "Get display information");
+					}
+					
+					break;
 				case 0x2:
 				case 0x3:
 				//case 0x9:
@@ -1220,11 +1231,11 @@ void CPU::intcall86 (uint8_t intnum)
 						if (regs.byteregs[regah]==0x10) return;
 						if (vm.video.vidmode==9) return;
 					}
-				if ( (regs.byteregs[regah]==0x1A) && (lastint10ax!=0x0100) ) { //the 0x0100 is a cheap hack to make it not do this if DOS EDIT/QBASIC
-						regs.byteregs[regal] = 0x1A;
-						regs.byteregs[regbl] = 0x8;
-						return;
-					}
+				//if ( (regs.byteregs[regah]==0x1A) && (lastint10ax!=0x0100) ) { //the 0x0100 is a cheap hack to make it not do this if DOS EDIT/QBASIC
+				//		regs.byteregs[regal] = 0x1A;
+				//		regs.byteregs[regbl] = 0x8;
+				//		return;
+				//	}
 				lastint10ax = regs.wordregs[regax];
 				if (regs.byteregs[regah]==0x1B) {
 						regs.byteregs[regal] = 0x1B;

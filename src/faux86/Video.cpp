@@ -135,6 +135,20 @@ void Video::handleInterrupt()
 								}
 							portram[0x3D8] = portram[0x3D8] & 0xFE;
 							break;
+						case 7: // TODO: 80x25 mono text
+							currentPalette = &paletteCGA;
+							videobase = textbase;
+							cols = 80;
+							rows = 25;
+							vidcolor = 0;
+							vidgfxmode = 0;
+							blankattr = 7;
+							for (tempcalc = videobase; tempcalc<videobase + 16384; tempcalc += 2) {
+								RAM[tempcalc] = 0;
+								RAM[tempcalc + 1] = blankattr;
+							}
+							portram[0x3D8] = portram[0x3D8] & 0xFE;
+							break;
 						case 127:
 							currentPalette = &paletteCGA;
 							videobase = 0xB8000;

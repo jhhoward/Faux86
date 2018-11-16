@@ -23,6 +23,9 @@
 #include "../../src/faux86/HostSystemInterface.h"
 #include "../../src/faux86/Renderer.h"
 
+struct SDL_Window;
+struct SDL_Renderer;
+struct SDL_Texture;
 struct SDL_Surface;
 
 namespace Faux86
@@ -33,16 +36,21 @@ namespace Faux86
 	{
 	public:
 		virtual void init(uint32_t desiredWidth, uint32_t desiredHeight) override;
+		virtual void resize(uint32_t desiredWidth, uint32_t desiredHeight) override;
 
 		virtual RenderSurface* getSurface() override;
 
 		virtual void setPalette(Palette* palette) override;
 
-		virtual bool lock() override;
-		virtual void unlock() override;
+		virtual void present() override;
 
+		SDL_Window* appWindow;
 	private:
+		SDL_Renderer* appRenderer;
 		SDL_Surface* surface;
+		SDL_Surface* screenSurface;
+		SDL_Texture* screenTexture;
+
 		RenderSurface renderSurface;
 	};
 
