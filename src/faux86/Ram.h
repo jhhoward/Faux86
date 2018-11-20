@@ -40,7 +40,7 @@ namespace Faux86
 		void writeWord(uint32_t addr32, uint16_t value);
 		void writeByte(uint32_t addr32, uint8_t value);
 
-		uint32_t loadBinary(uint32_t addr32, DiskInterface* file, uint8_t roflag);
+		uint32_t loadBinary(uint32_t addr32, DiskInterface* file, uint8_t roflag, uint32_t debugFlags = 0);
 
 		uint8_t* RAM;
 		uint8_t* readonly;

@@ -10,6 +10,7 @@ OBJS	=  kernel.o main.o CircleHostInterface.o PWMSound.o VCHIQSound.o \
 	  $(SRCDIR)/Audio.o \
 	  $(SRCDIR)/Config.o \
 	  $(SRCDIR)/CPU.o \
+	  $(SRCDIR)/Debugger.o \
 	  $(SRCDIR)/DisneySoundSource.o \
 	  $(SRCDIR)/DMA.o \
 	  $(SRCDIR)/DriveManager.o \
@@ -41,6 +42,7 @@ LIBS	= $(CIRCLEHOME)/addon/SDCard/libsdcard.a \
 	  $(CIRCLEHOME)/addon/vc4/sound/libvchiqsound.a \
 	  $(CIRCLEHOME)/addon/vc4/vchiq/libvchiq.a \
 	  $(CIRCLEHOME)/addon/linux/liblinuxemu.a \
+	  $(CIRCLEHOME)/addon/fatfs/libfatfs.a \
 	  $(CIRCLEHOME)/lib/sched/libsched.a \
 	  $(CIRCLEHOME)/lib/usb/libusb.a \
 	  $(CIRCLEHOME)/lib/input/libinput.a \

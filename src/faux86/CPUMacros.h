@@ -67,6 +67,7 @@
 #define getsegreg(regid)	segregs[regid]
 #define putsegreg(regid, writeval)	segregs[regid] = writeval
 #define segbase(x)	((uint32_t) x << 4)
+#define segaddr(seg, x) (segbase(seg) + ((x) & 0xFFFF))
 
 #define makeflagsword() \
 	( \

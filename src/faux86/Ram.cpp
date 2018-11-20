@@ -21,6 +21,7 @@
 #include <memory.h>
 #include "Ram.h"
 #include "VM.h"
+#include "Debugger.h"
 
 using namespace Faux86;
 
@@ -84,6 +85,11 @@ void Memory::writeByte(uint32_t addr32, uint8_t value)
 	{
 		RAM[tempaddr32] = value;
 	}
+
+	if (vm.debugger)
+	{
+		vm.debugger->onMemoryWrite(tempaddr32);
+	}
 }
 
 void Memory::writeWord(uint32_t addr32, uint16_t value)
@@ -124,6 +130,10 @@ uint8_t Memory::readByte(uint32_t addr32)
 	{
 		RAM[0x410] = 0x41; //ugly hack to make BIOS always believe we have an EGA/VGA card installed
 		RAM[0x475] = vm.drives.hdcount; //the BIOS doesn't have any concept of hard drives, so here's another hack
+		//RAM[0x487] = 0x60;
+		// base port of active CRT controller : 3B4h = mono, 3D4h = color
+		//RAM[0x463] = 0xd4;	
+		//RAM[0x464] = 0x03;
 	}
 
 	return (RAM[addr32]);
@@ -134,7 +144,7 @@ uint16_t Memory::readWord(uint32_t addr32)
 	return ((uint16_t)readByte(addr32) | (uint16_t)(readByte(addr32 + 1) << 8));
 }
 
-uint32_t Memory::loadBinary(uint32_t addr32, DiskInterface* file, uint8_t roflag) 
+uint32_t Memory::loadBinary(uint32_t addr32, DiskInterface* file, uint8_t roflag, uint32_t debugFlags) 
 {
 	if (!file)
 		return 0;
@@ -147,6 +157,9 @@ uint32_t Memory::loadBinary(uint32_t addr32, DiskInterface* file, uint8_t roflag
 	file->seek(0);
 	file->read(&vm.memory.RAM[addr32], fileSize);
 	memset((void *)&vm.memory.readonly[addr32], roflag, fileSize);
+
+	if (vm.debugger)
+		vm.debugger->flagRegion(addr32, fileSize, debugFlags);
 
 	return fileSize;
 }

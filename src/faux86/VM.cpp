@@ -21,6 +21,7 @@
 
 #include "VM.h"
 #include "DriveManager.h"
+#include "Debugger.h"
 
 using namespace Faux86;
 
@@ -118,8 +119,14 @@ VM::VM(Config& inConfig)
 
 bool VM::init()
 {
-	log(Log, "%s (c)2010-2013 Mike Chambers\n", BUILD_STRING);
-	log(Log, "[A portable, open-source 8086 PC emulator]\n\n");
+	log(Log, "Faux86 (c)2018 James Howard");
+	log(Log, "Base on Fake86 (c)2010-2013 Mike Chambers");
+	log(Log, "[A portable, open-source 8086 PC emulator]");
+
+	if (config.enableDebugger)
+	{
+		debugger = new Debugger(*this);
+	}
 
 	renderer.init();
 	audio.init();
@@ -146,8 +153,8 @@ bool VM::init()
 	}
 
 	uint32_t biosSize = (uint32_t) config.biosFile->getSize();
-	memory.loadBinary((uint32_t)(DEFAULT_RAM_SIZE - biosSize), config.biosFile, 1);
-	
+	memory.loadBinary((uint32_t)(DEFAULT_RAM_SIZE - biosSize), config.biosFile, 1, MemArea_BIOS);
+
 	//memory.loadBinary(0xA0000UL, config.asciiFile, 1);
 
 #ifdef DISK_CONTROLLER_ATA
@@ -159,11 +166,19 @@ bool VM::init()
 	if (biosSize <= 8192) 
 	{
 		memory.loadBinary(0xF6000UL, config.romBasicFile, 0);
-		if (!memory.loadBinary(0xC0000UL, config.videoRomFile, 1))
+		if (!memory.loadBinary(0xC0000UL, config.videoRomFile, 1, MemArea_VGABIOS))
 		{
 			log(LogFatal, "Could not load video rom file!");
 			return false;
 		}
+	}
+
+	if (debugger)
+	{
+		debugger->flagRegion(0x400, 256, MemArea_BDA);
+		debugger->flagRegion(0, 0x3FF, MemArea_InterruptTable);
+
+		//debugger->addDataBreakpoint(0x487);
 	}
 
 	drives.insertDisk(DRIVE_A, config.diskDriveA);

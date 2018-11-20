@@ -50,6 +50,13 @@ void Ports::outByte (uint16_t portnum, uint8_t value)
 	//if (verbose) printf("portout(0x%X, 0x%02X);\n", portnum, value);
 	switch (portnum) 
 	{
+		case 0x3D5:
+		case 0x3D4:
+		{
+//			log(Log, "Writing VGA port %x : %x", portnum, value);
+			//portram[portnum] = ~value;
+		}
+			break;
 		case 0x61:
 			if ((value & 3) == 3)
 			{
@@ -73,6 +80,14 @@ uint8_t Ports::inByte (uint16_t portnum)
 	//if (verbose) printf("portin(0x%X);\n", portnum);
 	switch (portnum) 
 	{
+		case 0x3D5:
+		case 0x3D4:
+		{
+//			log(Log, "Probing VGA port %x (%x)", portnum, portram[portnum]);
+			//portram[portnum] = ~value;
+		}
+		break;
+
 		case 0x62:
 			return (0x00);
 		case 0x60:

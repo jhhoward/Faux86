@@ -26,6 +26,7 @@
 #include "VM.h"
 #include "CPU.h"
 #include "Ram.h"
+#include "Debugger.h"
 #include "modregrm.h"
 
 using namespace Faux86;
@@ -513,14 +514,15 @@ void CPU::push (uint16_t pushval)
 {
 	regs.wordregs[regsp] = regs.wordregs[regsp] - 2;
 	putmem16 (segregs[regss], regs.wordregs[regsp], pushval);
+	//log(LogDebugger, "Push %x", pushval);
 }
 
 uint16_t CPU::pop() 
 {
 	uint16_t	tempval;
-
 	tempval = getmem16 (segregs[regss], regs.wordregs[regsp]);
 	regs.wordregs[regsp] = regs.wordregs[regsp] + 2;
+	//log(LogDebugger, "Pop %x", tempval);
 	return tempval;
 }
 
@@ -1124,15 +1126,22 @@ void CPU::op_grp5()
 
 			case 2: /* CALL Ev */
 				push (ip);
+				if (vm.debugger)
+					vm.debugger->onCall(segaddr(segregs[regcs], oper1), segaddr(segregs[regcs], ip));
 				ip = oper1;
 				break;
 
 			case 3: /* CALL Mp */
+			{
 				push (segregs[regcs]);
 				push (ip);
 				getea (rm);
+				uint32_t returnAddress = segaddr(segregs[regcs], ip);
 				ip = (uint16_t) vm.memory.readByte (ea) + (uint16_t) vm.memory.readByte (ea + 1) * 256;
 				segregs[regcs] = (uint16_t) vm.memory.readByte (ea + 2) + (uint16_t) vm.memory.readByte (ea + 3) * 256;
+				if (vm.debugger)
+					vm.debugger->onCall(segaddr(segregs[regcs], ip), returnAddress);
+			}
 				break;
 
 			case 4: /* JMP Ev */
@@ -1184,6 +1193,8 @@ void CPU::intcall86 (uint8_t intnum)
 					else
 					{
 						log(Log, "Get display information");
+						//regs.byteregs[regbl] = 0x08; // VGA with analog color display;
+						//return;
 					}
 					
 					break;
@@ -1216,12 +1227,16 @@ void CPU::intcall86 (uint8_t intnum)
 
 				if ((regs.byteregs[regah] == 0x12) && (regs.byteregs[regbl] == 0x10))
 				{
-					log(Log, "Vid config");
-					regs.byteregs[regbh] = 0;
-					regs.byteregs[regbl] = 3;
-					regs.byteregs[regch] = 0x08;
-					regs.byteregs[regcl] = 0x0b;
-					return;
+					if (vm.debugger)
+						vm.debugger->logCallstack();
+
+					//log(Log, "Vid config");
+					//regs.byteregs[regbh] = 0;
+					//regs.byteregs[regbl] = 3;
+					//regs.byteregs[regch] = 0x08;
+					//regs.byteregs[regcl] = 0x0b;
+
+					//return;
 				}
 
 				if ( (regs.byteregs[regah]==0x00) || (regs.byteregs[regah]==0x10) ) {
@@ -1231,11 +1246,11 @@ void CPU::intcall86 (uint8_t intnum)
 						if (regs.byteregs[regah]==0x10) return;
 						if (vm.video.vidmode==9) return;
 					}
-				//if ( (regs.byteregs[regah]==0x1A) && (lastint10ax!=0x0100) ) { //the 0x0100 is a cheap hack to make it not do this if DOS EDIT/QBASIC
-				//		regs.byteregs[regal] = 0x1A;
-				//		regs.byteregs[regbl] = 0x8;
-				//		return;
-				//	}
+				if ( (regs.byteregs[regah]==0x1A) && (lastint10ax!=0x0100) ) { //the 0x0100 is a cheap hack to make it not do this if DOS EDIT/QBASIC
+						regs.byteregs[regal] = 0x1A;
+						regs.byteregs[regbl] = 0x8;
+						return;
+					}
 				lastint10ax = regs.wordregs[regax];
 				if (regs.byteregs[regah]==0x1B) {
 						regs.byteregs[regal] = 0x1B;
@@ -1287,10 +1302,16 @@ void CPU::intcall86 (uint8_t intnum)
 	push (makeflagsword() );
 	push (segregs[regcs]);
 	push (ip);
+	uint32_t returnAddress = segaddr(segregs[regcs], ip);
 	segregs[regcs] = getmem16 (0, (uint16_t) intnum * 4 + 2);
 	ip = getmem16 (0, (uint16_t) intnum * 4);
 	ifl = 0;
 	tf = 0;
+
+	if (vm.debugger)
+	{
+		vm.debugger->onCall(segaddr(segregs[regcs], ip), returnAddress);
+	}
 }
 
 #if defined(NETWORKING_ENABLED)
@@ -1320,6 +1341,8 @@ void CPU::exec86 (uint32_t execloops)
 	counterticks = (uint64_t) ( (double) timerfreq / (double) 65536.0);
 
 	for (loopcount = 0; loopcount < execloops; loopcount++) {
+			if (vm.debugger && vm.debugger->isDebugging)
+				return;
 
 			if ( (totalexec & TIMING_INTERVAL) == 0) vm.timing.tick();
 
@@ -1340,6 +1363,9 @@ void CPU::exec86 (uint32_t execloops)
 				}
 
 			if (hltstate) goto skipexecution;
+
+			if (vm.debugger && vm.debugger->shouldBreakOnExecute((segregs[regcs] << 4) + ip))
+				return;
 
 			/*if ((((uint32_t)segregs[regcs] << 4) + (uint32_t)ip) == 0xFEC59) {
 					//printf("Entered F000:EC59, returning to ");
@@ -2695,6 +2721,8 @@ void CPU::exec86 (uint32_t execloops)
 						StepIP (2);
 						push (segregs[regcs]);
 						push (ip);
+						if (vm.debugger)
+							vm.debugger->onCall(segaddr(oper2, oper1), segaddr(segregs[regcs], ip));
 						ip = oper1;
 						segregs[regcs] = oper2;
 						break;
@@ -3168,10 +3196,14 @@ void CPU::exec86 (uint32_t execloops)
 						oper1 = getmem16 (segregs[regcs], ip);
 						ip = pop();
 						regs.wordregs[regsp] = regs.wordregs[regsp] + oper1;
+						if (vm.debugger)
+							vm.debugger->onReturn(segaddr(segregs[regcs], ip));
 						break;
 
 					case 0xC3:	/* C3 RET */
 						ip = pop();
+						if (vm.debugger)
+							vm.debugger->onReturn(segaddr(segregs[regcs], ip));
 						break;
 
 					case 0xC4:	/* C4 LES Gv Mp */
@@ -3231,11 +3263,15 @@ void CPU::exec86 (uint32_t execloops)
 						ip = pop();
 						segregs[regcs] = pop();
 						regs.wordregs[regsp] = regs.wordregs[regsp] + oper1;
+						if (vm.debugger)
+							vm.debugger->onReturn(segaddr(segregs[regcs], ip));
 						break;
 
 					case 0xCB:	/* CB RETF */
 						ip = pop();;
 						segregs[regcs] = pop();
+						if (vm.debugger)
+							vm.debugger->onReturn(segaddr(segregs[regcs], ip));
 						break;
 
 					case 0xCC:	/* CC INT 3 */
@@ -3258,7 +3294,8 @@ void CPU::exec86 (uint32_t execloops)
 						ip = pop();
 						segregs[regcs] = pop();
 						decodeflagsword (pop() );
-
+						if(vm.debugger)
+							vm.debugger->onReturn(segaddr(segregs[regcs], ip));
 						/*
 						 * if (net.enabled) net.canrecv = 1;
 						 */
@@ -3394,6 +3431,8 @@ void CPU::exec86 (uint32_t execloops)
 						oper1 = getmem16 (segregs[regcs], ip);
 						StepIP (2);
 						push (ip);
+						if (vm.debugger)
+							vm.debugger->onCall(segaddr(segregs[regcs], (ip + oper1) & 0xFFFF), segaddr(segregs[regcs], ip));
 						ip = ip + oper1;
 						break;
 

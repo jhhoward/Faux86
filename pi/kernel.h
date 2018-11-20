@@ -36,6 +36,7 @@
 #include <circle/types.h>
 #include <circle/usb/dwhcidevice.h>
 #include <vc4/vchiq/vchiqdevice.h>
+#include <fatfs/ff.h>
 #include <circle/sched/scheduler.h>
 
 
@@ -93,6 +94,7 @@ private:
 #endif
 	CVCHIQDevice		m_VCHIQ;
 
+	FATFS			m_FileSystem;
 	
 	//CFATFileSystem		m_FileSystem;
 	Faux86::CircleHostInterface* HostInterface;

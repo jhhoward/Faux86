@@ -120,6 +120,7 @@
     <ClCompile Include="..\..\src\faux86\Adlib.cpp" />
     <ClCompile Include="..\..\src\faux86\ata.cpp" />
     <ClCompile Include="..\..\src\faux86\Audio.cpp" />
+    <ClCompile Include="..\..\src\faux86\Debugger.cpp" />
     <ClCompile Include="..\..\src\faux86\MemUtils.cpp" />
     <ClCompile Include="..\..\src\faux86\SoundBlaster.cpp" />
     <ClCompile Include="..\..\src\faux86\console.cpp" />
@@ -150,6 +151,7 @@
     <ClInclude Include="..\..\src\faux86\Adlib.h" />
     <ClInclude Include="..\..\src\faux86\Audio.h" />
     <ClInclude Include="..\..\src\faux86\CPUMacros.h" />
+    <ClInclude Include="..\..\src\faux86\Debugger.h" />
     <ClInclude Include="..\..\src\faux86\HostSystemInterface.h" />
     <ClInclude Include="..\..\src\faux86\MemUtils.h" />
     <ClInclude Include="..\..\src\faux86\Profiler.h" />

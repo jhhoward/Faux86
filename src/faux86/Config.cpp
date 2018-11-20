@@ -188,6 +188,10 @@ void Config::parseCommandLine(int argc, char *argv[])
 					i++;
 					biosFilePath = argv[i];
 				}
+			else if (strcmpi (argv[i], "-videorom") ==0) {
+					i++;
+					videoRomFile = hostSystemInterface->openFile(argv[i]);
+				}
 			else if (strcmpi (argv[i], "-resw") ==0) {
 					i++;
 					constantw = (uint16_t) atoi (argv[i]);
@@ -199,6 +203,9 @@ void Config::parseCommandLine(int argc, char *argv[])
 			else if (strcmpi (argv[i], "-speed") ==0) {
 					i++;
 					speed= (uint32_t) atol (argv[i]);
+				}
+			else if (strcmpi (argv[i], "-debugger") ==0) {
+				enableDebugger = true;
 				}
 			else if (strcmpi (argv[i], "-noscale") ==0) noScale = true;
 			else if (strcmpi (argv[i], "-verbose") ==0) verbose = 1;

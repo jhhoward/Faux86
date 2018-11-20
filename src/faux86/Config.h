@@ -20,7 +20,7 @@
 */
 #pragma once
 
-#define BUILD_STRING "Faux86 v0.13.9.16"
+#define BUILD_STRING "Faux86"
 
 //be sure to only define ONE of the CPU_* options at any given time, or
 //you will likely get some unexpected/bad results!
@@ -158,6 +158,7 @@ namespace Faux86
 		bool enableConsole = false;
 		bool singleThreaded = true;
 		bool slowSystem = false;
+		bool enableDebugger = false;
 		
 		uint32_t speed = 0;
 		uint32_t frameDelay = 20;

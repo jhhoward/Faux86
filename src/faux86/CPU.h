@@ -42,6 +42,7 @@ namespace Faux86
 		} regs;
 
 		uint8_t cf = 0;
+		uint16_t ip = 0;
 		uint32_t makeupticks = 0;
 		uint16_t segregs[4] = { 0, 0, 0, 0 };
 		uint8_t ethif = 0;
@@ -103,7 +104,7 @@ namespace Faux86
 		VM& vm;
 
 		uint8_t	opcode = 0, segoverride = 0, reptype = 0, hltstate = 0;
-		uint16_t savecs = 0, saveip = 0, ip = 0, useseg = 0, oldsp = 0;
+		uint16_t savecs = 0, saveip = 0, useseg = 0, oldsp = 0;
 		uint8_t	tempcf = 0, oldcf = 0, pf = 0, af = 0, zf = 0, sf = 0, tf = 0, ifl = 0, df = 0, of = 0, mode = 0, reg = 0, rm = 0;
 		uint16_t oper1 = 0, oper2 = 0, res16 = 0, disp16 = 0, temp16 = 0, dummy = 0, stacksize = 0, frametemp = 0;
 		uint8_t	oper1b = 0, oper2b = 0, res8 = 0, disp8 = 0, temp8 = 0, nestlev = 0, addrbyte = 0;

@@ -22,6 +22,7 @@
 
 #if 1
 #include <stdint.h>
+#include <assert.h>
 #else
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
@@ -35,6 +36,7 @@ typedef signed long long int64_t;
 
 typedef unsigned int uintptr_t;
 typedef uint32_t size_t;
+#define assert(x)
 #endif
 
 #ifndef _WIN32

@@ -22,6 +22,7 @@
 
 #include "HostSystemInterface.h"
 #include "Renderer.h"
+#include "SerialMouse.h"
 
 class CUSBKeyboardDevice;
 class CDeviceNameService;
@@ -40,12 +41,8 @@ namespace Faux86
 		virtual void init(uint32_t desiredWidth, uint32_t desiredHeight) override;
 		virtual RenderSurface* getSurface() override;
 		virtual void resize(uint32_t desiredWidth, uint32_t desiredHeight) override;
-
 		
 		virtual void setPalette(Palette* palette) override;
-
-		virtual bool lock() override { return true; }
-		virtual void unlock() override {}
 
 	private:
 		CBcmFrameBuffer* frameBuffer = nullptr;
@@ -94,17 +91,36 @@ namespace Faux86
 		enum class EventType
 		{
 			KeyPress,
-			KeyRelease
+			KeyRelease,
+			MousePress,
+			MouseRelease,
+			MouseMove
 		};
 
 		struct InputEvent
 		{
 			EventType eventType;
-			u16 scancode;
+			
+			union
+			{
+				u16 scancode;
+				
+				SerialMouse::ButtonType mouseButton;
+				
+				struct
+				{
+					s8 mouseMotionX;
+					s8 mouseMotionY;
+				};
+			};
 		};
 	
-		static void keyStatusHandlerRaw (unsigned char ucModifiers, const unsigned char RawKeys[6]);
+
+		void queueEvent(InputEvent& inEvent);
 		void queueEvent(EventType eventType, u16 scancode);
+		
+		static void mouseStatusHandler (unsigned nButtons, int nDisplacementX, int nDisplacementY);
+		static void keyStatusHandlerRaw (unsigned char ucModifiers, const unsigned char RawKeys[6]);
 
 		CircleFrameBufferInterface frameBuffer;
 		CircleAudioInterface audio;
@@ -121,6 +137,6 @@ namespace Faux86
 		InputEvent inputBuffer[MaxInputBufferSize];
 		int inputBufferPos = 0;
 		int inputBufferSize = 0;
-
+		unsigned lastMouseButtons = 0;
 	};
 }

@@ -153,6 +153,11 @@ boolean CKernel::Initialize (void)
 
 	if(bOK)
 	{
+		bOK = (f_mount (&m_FileSystem, "SD:", 1) == FR_OK);
+	}
+
+	if(bOK)
+	{
 		HostInterface = new CircleHostInterface(m_DeviceNameService, m_Interrupt, m_VCHIQ);
 		vmConfig = new Config(HostInterface);
 		

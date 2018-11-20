@@ -42,6 +42,8 @@
 
 namespace Faux86
 {
+	class Debugger;
+
 	class VM
 	{
 	public:
@@ -75,6 +77,8 @@ namespace Faux86
 		InputManager input;
 		TimingScheduler timing;
 		TaskManager taskManager;
+
+		Debugger* debugger;
 
 		bool running;
 

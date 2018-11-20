@@ -630,6 +630,14 @@ bool Video::portWriteHandler(uint16_t portnum, uint8_t value)
 			latchRGB = (latchRGB + 1) % 3;
 			break;
 		case 0x3D5: //cursor position latch
+
+			/* weird hack to detect color monitor?
+			if (portram[0x3D4] == 0xF && value >= 25)
+			{
+				value = 24;
+			}
+			*/
+
 			VGA_CRTC[portram[0x3D4]] = value & 255;
 			if (portram[0x3D4]==0xE) 
 				cursorposition = (cursorposition&0xFF) | (value<<8);

@@ -29,7 +29,8 @@ namespace Faux86
 		LogVerbose,
 		LogFatal,
 		Log,
-		LogRaw
+		LogRaw,
+		LogDebugger
 	};
 
 	// Must be implemented by host system
