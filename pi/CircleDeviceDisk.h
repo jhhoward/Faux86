@@ -20,19 +20,19 @@
 */
 #pragma once
 
-#include <SDCard/emmc.h>
+#include <circle/device.h>
 #include "DriveManager.h"
 
 namespace Faux86
 {
-	class MMCDisk : public DiskInterface
+	class CircleDeviceDisk : public DiskInterface
 	{
 	private:
-		CEMMCDevice* device;
+		CDevice* device;
 		uint64_t seekPos;
 
 	public:
-		MMCDisk(CEMMCDevice* inDevice) : device(inDevice) {}
+		CircleDeviceDisk(CDevice* inDevice) : device(inDevice) {}
 		
 		virtual int read (uint8_t *buffer, unsigned count) override 
 		{

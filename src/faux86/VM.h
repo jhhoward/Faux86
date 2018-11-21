@@ -78,7 +78,7 @@ namespace Faux86
 		TimingScheduler timing;
 		TaskManager taskManager;
 
-		Debugger* debugger;
+		Debugger* debugger = nullptr;
 
 		bool running;
 

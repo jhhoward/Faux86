@@ -130,10 +130,16 @@ uint8_t Memory::readByte(uint32_t addr32)
 	{
 		RAM[0x410] = 0x41; //ugly hack to make BIOS always believe we have an EGA/VGA card installed
 		RAM[0x475] = vm.drives.hdcount; //the BIOS doesn't have any concept of hard drives, so here's another hack
+		
+		// 256K video RAM
 		//RAM[0x487] = 0x60;
+
 		// base port of active CRT controller : 3B4h = mono, 3D4h = color
 		//RAM[0x463] = 0xd4;	
 		//RAM[0x464] = 0x03;
+
+		// VGA active
+		//RAM[0x489] = 0x01;
 	}
 
 	return (RAM[addr32]);

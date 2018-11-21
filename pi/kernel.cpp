@@ -22,7 +22,7 @@
 #include <circle/string.h>
 #include "CircleHostInterface.h"
 #include "VM.h"
-#include "MMCDisk.h"
+#include "CircleDeviceDisk.h"
 
 // Embedded disks / ROMS
 #if USE_EMBEDDED_BOOT_FLOPPY
@@ -162,14 +162,28 @@ boolean CKernel::Initialize (void)
 		vmConfig = new Config(HostInterface);
 		
 		vmConfig->audio.sampleRate = 44100;
+#if 1
 		vmConfig->biosFile = new EmbeddedDisk(pcxtbios, sizeof(pcxtbios));
 		vmConfig->videoRomFile = new EmbeddedDisk(videorom, sizeof(videorom));
 		vmConfig->asciiFile = new EmbeddedDisk(asciivga, sizeof(asciivga));
 #if USE_EMBEDDED_BOOT_FLOPPY
 		vmConfig->diskDriveA = new EmbeddedDisk(dosboot, sizeof(dosboot));
 #endif
+#else
+		vmConfig->biosFile = HostInterface->openFile("SD:/pcxtbios.bin");
+		vmConfig->videoRomFile = HostInterface->openFile("SD:/videorom.bin");
+		vmConfig->asciiFile = HostInterface->openFile("SD:/asciivga.dat");
+		vmConfig->diskDriveA = HostInterface->openFile("SD:/dosboot.img");
+#endif
+
 #if USE_MMC_MOUNTING
-		vmConfig->diskDriveC = new MMCDisk(&m_EMMC);
+		vmConfig->diskDriveC = new CircleDeviceDisk(&m_EMMC);
+		
+		CDevice *pUMSD1 = m_DeviceNameService.GetDevice ("umsd1", TRUE);
+		if(pUMSD1)
+		{
+			vmConfig->diskDriveD = new CircleDeviceDisk(pUMSD1);
+		}
 #endif
         
 		// TODO
