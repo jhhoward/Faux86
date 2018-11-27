@@ -77,7 +77,8 @@ namespace Faux86
 		uint16_t cols = 80; 
 		uint16_t rows = 25;
 		uint16_t vgapage, cursorposition, cursorvisible;
-		uint8_t fontcga[32768];
+		static constexpr int FontSize = 32768;
+		uint8_t* fontcga;
 		//uint32_t palettecga[16], palettevga[256];
 		uint8_t clocksafe, port3da, port6;
 		uint32_t videobase = 0xB8000;

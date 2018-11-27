@@ -57,7 +57,7 @@ CKernel::CKernel (void) :
 #endif
 	m_VCHIQ (&m_Memory, &m_Interrupt)
 {
-	//m_ActLED.Blink (5);	// show we are alive
+	m_ActLED.Blink (5);	// show we are alive
 }
 
 CKernel::~CKernel (void)
@@ -162,34 +162,43 @@ boolean CKernel::Initialize (void)
 		vmConfig = new Config(HostInterface);
 		
 		vmConfig->audio.sampleRate = 44100;
-#if 1
-		vmConfig->biosFile = new EmbeddedDisk(pcxtbios, sizeof(pcxtbios));
-		vmConfig->videoRomFile = new EmbeddedDisk(videorom, sizeof(videorom));
-		vmConfig->asciiFile = new EmbeddedDisk(asciivga, sizeof(asciivga));
-#if USE_EMBEDDED_BOOT_FLOPPY
-		vmConfig->diskDriveA = new EmbeddedDisk(dosboot, sizeof(dosboot));
-#endif
-#else
+
+		log(Log, "Attempting to load system files");
+		
 		vmConfig->biosFile = HostInterface->openFile("SD:/pcxtbios.bin");
 		vmConfig->videoRomFile = HostInterface->openFile("SD:/videorom.bin");
 		vmConfig->asciiFile = HostInterface->openFile("SD:/asciivga.dat");
 		vmConfig->diskDriveA = HostInterface->openFile("SD:/dosboot.img");
+
+		if(!vmConfig->biosFile)
+			vmConfig->biosFile = new EmbeddedDisk(pcxtbios, sizeof(pcxtbios));
+		if(!vmConfig->videoRomFile)
+			vmConfig->videoRomFile = new EmbeddedDisk(videorom, sizeof(videorom));
+		if(!vmConfig->asciiFile)
+			vmConfig->asciiFile = new EmbeddedDisk(asciivga, sizeof(asciivga));
+#if USE_EMBEDDED_BOOT_FLOPPY
+		if(!vmConfig->diskDriveA)
+			vmConfig->diskDriveA = new EmbeddedDisk(dosboot, sizeof(dosboot));
 #endif
 
 #if USE_MMC_MOUNTING
 		vmConfig->diskDriveC = new CircleDeviceDisk(&m_EMMC);
+#endif
 		
 		CDevice *pUMSD1 = m_DeviceNameService.GetDevice ("umsd1", TRUE);
 		if(pUMSD1)
 		{
 			vmConfig->diskDriveD = new CircleDeviceDisk(pUMSD1);
 		}
-#endif
         
 		// TODO
 		//vmConfig->parseCommandLine(argc, argv);
 		
+		log(Log, "Creating VM");
+		
 		vm = new VM(*vmConfig);
+
+		log(Log, "Init VM");
 		
 		bOK = vm->init();
 	}

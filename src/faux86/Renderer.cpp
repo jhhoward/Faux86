@@ -681,9 +681,16 @@ void Renderer::draw ()
 
 			if (!planemode)
 			{
-				for (y = 0; y < nativeHeight; y++)
+				if (renderSurface->pitch == nativeWidth)
 				{
-					MemUtils::memcpy(&renderSurface->pixels[y * renderSurface->pitch], &RAM[vm.video.videobase + ((vm.video.vgapage + y*nativeWidth) & 0xFFFF)], nativeWidth);
+					MemUtils::memcpy(renderSurface->pixels, &RAM[vm.video.videobase + ((vm.video.vgapage) & 0xFFFF)], nativeWidth * nativeHeight);
+				}
+				else
+				{
+					for (y = 0; y < nativeHeight; y++)
+					{
+						MemUtils::memcpy(&renderSurface->pixels[y * renderSurface->pitch], &RAM[vm.video.videobase + ((vm.video.vgapage + y*nativeWidth) & 0xFFFF)], nativeWidth);
+					}
 				}
 			}
 			else

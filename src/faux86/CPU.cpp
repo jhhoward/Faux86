@@ -1227,16 +1227,16 @@ void CPU::intcall86 (uint8_t intnum)
 
 				if ((regs.byteregs[regah] == 0x12) && (regs.byteregs[regbl] == 0x10))
 				{
-					if (vm.debugger)
-						vm.debugger->logCallstack();
+					//if (vm.debugger)
+					//	vm.debugger->logCallstack();
 
-					//log(Log, "Vid config");
-					//regs.byteregs[regbh] = 0;
-					//regs.byteregs[regbl] = 3;
-					//regs.byteregs[regch] = 0x08;
-					//regs.byteregs[regcl] = 0x0b;
+					log(Log, "Vid config");
+					regs.byteregs[regbh] = 0;
+					regs.byteregs[regbl] = 3;
+					regs.byteregs[regch] = 0x08;
+					regs.byteregs[regcl] = 0x0b;
 
-					//return;
+					return;
 				}
 
 				if ( (regs.byteregs[regah]==0x00) || (regs.byteregs[regah]==0x10) ) {

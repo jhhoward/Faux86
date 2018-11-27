@@ -20,13 +20,13 @@
 */
 #include <circle/bcmframebuffer.h>
 #include <circle/usb/usbkeyboard.h>
-#include <circle/usb/usbmouse.h>
+#include <circle/input/mouse.h>
 #include <circle/devicenameservice.h>
 #include <circle/string.h>
 #include <circle/interrupt.h>
 #include "CircleHostInterface.h"
 #include "FatFsDisk.h"
-#include "Keymap.h"
+#include "Keymap.h" 
 #include "VM.h"
 #include "kernel.h"
 #include "PWMSound.h"
@@ -182,7 +182,7 @@ CircleHostInterface::CircleHostInterface(CDeviceNameService& deviceNameService, 
 		keyboard->RegisterKeyStatusHandlerRaw (keyStatusHandlerRaw);
 	}
 	
-	CUSBMouseDevice* mouse = (CUSBMouseDevice *) deviceNameService.GetDevice ("umouse1", FALSE);
+	CMouseDevice* mouse = (CMouseDevice *) deviceNameService.GetDevice ("mouse1", FALSE);
 	
 	if(mouse)
 	{

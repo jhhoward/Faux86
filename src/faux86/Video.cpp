@@ -140,7 +140,8 @@ void Video::handleInterrupt()
 							videobase = textbase;
 							cols = 80;
 							rows = 25;
-							vidcolor = 0;
+							//vidcolor = 0;
+							vidcolor = 1;	// should actually be mono
 							vidgfxmode = 0;
 							blankattr = 7;
 							for (tempcalc = videobase; tempcalc<videobase + 16384; tempcalc += 2) {
@@ -261,7 +262,8 @@ Video::Video(VM& inVM)
 {
 	if (vm.config.asciiFile && vm.config.asciiFile->isValid())
 	{
-		vm.config.asciiFile->read(fontcga, 32768);
+		fontcga = new uint8_t[FontSize];
+		vm.config.asciiFile->read(fontcga, FontSize);
 	}
 	else
 	{
@@ -650,6 +652,7 @@ bool Video::portWriteHandler(uint16_t portnum, uint8_t value)
 				//printf("Vertical total: %u\n", vtotal);
 			}
 			vgapage = ((uint32_t)VGA_CRTC[0xC] << 8) + (uint32_t)VGA_CRTC[0xD];
+
 			break;
 		case 0x3CF:
 			VGA_GC[portram[0x3CE]] = value;
@@ -673,6 +676,13 @@ bool Video::portReadHandler(uint16_t portnum, uint8_t& outValue)
 			outValue = ( (uint8_t) VGA_SC[vm.ports.portram[0x3C4]]);
 			return true;
 		case 0x3D5:
+			// This is a hack to detect the display as colour (not sure why)
+			// If still booting and in display mode 20h or 30h, return zero cursor location
+			//if ((vidmode == 0x20 || vidmode == 0x30) && (vm.ports.portram[0x3D4] == 0xE || vm.ports.portram[0x3D4] == 0xF))
+			//{
+			//	outValue = 0;
+			//	return true;
+			//}
 			outValue = ( (uint8_t) VGA_CRTC[vm.ports.portram[0x3D4]]);
 			return true;
 		case 0x3C7: //DAC state

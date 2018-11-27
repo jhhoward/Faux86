@@ -35,10 +35,17 @@ namespace Faux86
 		static FatFsDisk* open(const char* path)
 		{
 			FIL file;
+			
+			log(Log, "Attempting to open %s for read", path);
+						
 			if(f_open (&file, path, FA_READ | FA_OPEN_EXISTING) == FR_OK)
 			{
+				log(Log, "Success!");
 				return new FatFsDisk(file);
 			}
+			
+			log(Log, "Could not open file %s", path);
+			
 			return nullptr;
 		}
 		
