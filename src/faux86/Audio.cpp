@@ -71,15 +71,12 @@ void Audio::tick()
 {
 	int16_t sample;
 	if (audbufptr >= usebuffersize) return;
-	sample = vm.adlib.generateSample() >> 4;
+	sample = vm.adlib.generateSample() >> 8;
 	if (vm.config.useDisneySoundSource) sample += vm.soundSource.generateSample();
 	sample += vm.blaster.generateSample();
 	if (vm.pcSpeaker.enabled) sample += (vm.pcSpeaker.generateSample() >> 1);
 	if (audbufptr < (int) sizeof(audbuf) ) audbuf[audbufptr++] = (uint8_t) ((uint16_t) sample+128);
 }
-
-//extern uint64_t timinginterval;
-//extern void inittiming();
 
 void Audio::fillAudioBuffer(uint8_t *stream, int len)
 {

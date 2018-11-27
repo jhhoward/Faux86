@@ -16,6 +16,7 @@ OBJS	=  kernel.o main.o CircleHostInterface.o PWMSound.o VCHIQSound.o \
 	  $(SRCDIR)/DriveManager.o \
 	  $(SRCDIR)/InputManager.o \
 	  $(SRCDIR)/MemUtils.o \
+	  $(SRCDIR)/opl3.o \
 	  $(SRCDIR)/PCSpeaker.o \
 	  $(SRCDIR)/PIC.o \
 	  $(SRCDIR)/PIT.o \
