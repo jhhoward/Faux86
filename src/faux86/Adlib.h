@@ -23,6 +23,7 @@
 #include "Types.h"
 #include "Audio.h"
 #include "Ports.h"
+#include "opl3.h"
 
 namespace Faux86
 {
@@ -46,13 +47,11 @@ namespace Faux86
 		virtual bool portReadHandler(uint16_t portnum, uint8_t& outValue) override;
 
 	private:
-		int32_t sampleChannel(uint8_t curchan);
-		uint16_t freq(uint8_t chan);
-
 		VM& vm;
 
-		uint64_t adlibstep[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-
+		opl3_chip opl3;
+		uint8_t targetRegister = 0;
+		uint8_t timerRegister = 0;
 	};
 }
 
