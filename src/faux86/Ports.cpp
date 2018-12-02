@@ -46,7 +46,6 @@ void Ports::reset()
 
 void Ports::outByte (uint16_t portnum, uint8_t value) 
 {
-	portram[portnum] = value;
 	//if (verbose) printf("portout(0x%X, 0x%02X);\n", portnum, value);
 	switch (portnum) 
 	{
@@ -73,6 +72,8 @@ void Ports::outByte (uint16_t portnum, uint8_t value)
 	{
 		return;
 	}
+
+	portram[portnum] = value;
 }
 
 uint8_t Ports::inByte (uint16_t portnum) 

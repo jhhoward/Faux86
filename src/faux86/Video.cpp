@@ -270,6 +270,10 @@ Video::Video(VM& inVM)
 		// Error!
 	}
 
+	MemUtils::memset(VGA_ATTR, 0, sizeof(uint16_t) * 0x100);
+	MemUtils::memset(VGA_CRTC, 0, sizeof(uint16_t) * 0x100);
+	MemUtils::memset(VGA_SC, 0, sizeof(uint16_t) * 0x100);
+	MemUtils::memset(VGA_GC, 0, sizeof(uint16_t) * 0x100);
 	vm.ports.setPortRedirector(0x3B0, 0x3DA, this);
 
 	currentPalette = &paletteCGA;
@@ -553,7 +557,7 @@ bool Video::portWriteHandler(uint16_t portnum, uint8_t value)
 {
 	uint8_t* portram = vm.ports.portram;
 	static uint8_t oldah, oldal;
-	uint8_t flip3c0 = 0;
+	static uint8_t flip3c0 = 0;
 	updatedscreen = 1;
 	union CPU::_bytewordregs_& regs = vm.cpu.regs;
 
