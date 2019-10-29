@@ -1,0 +1,5 @@
+# Disable rainbow splash screen
+disable_splash=1
+
+# Force aspect ratio to 4:3
+sdtv_aspect=1

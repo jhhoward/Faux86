@@ -1,7 +1,7 @@
 /*
   Faux86: A portable, open-source 8086 PC emulator.
   Copyright (C)2018 James Howard
-  Base on Fake86
+  Based on Fake86
   Copyright (C)2010-2013 Mike Chambers
 
   This program is free software; you can redistribute it and/or

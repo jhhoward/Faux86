@@ -1,7 +1,7 @@
 /*
   Faux86: A portable, open-source 8086 PC emulator.
   Copyright (C)2018 James Howard
-  Base on Fake86
+  Based on Fake86
   Copyright (C)2010-2013 Mike Chambers
 
   This program is free software; you can redistribute it and/or
@@ -28,9 +28,11 @@
 #if USE_EMBEDDED_BOOT_FLOPPY
 #include "../data/dosboot.h"
 #endif
+#if USE_EMBEDDED_ROM_IMAGES
 #include "../data/asciivga.h"
 #include "../data/pcxtbios.h"
 #include "../data/videorom.h"
+#endif
 
 #define REQUIRED_KERNEL_MEMORY (0x2000000)
 
@@ -46,6 +48,7 @@ using namespace Faux86;
 
 CKernel::CKernel (void) :
 //:	m_Screen (256, 256, true),//(m_Options.GetWidth (), m_Options.GetHeight (), true),
+	m_ActLED(false),
 #if !USE_BCM_FRAMEBUFFER
 	m_Screen (m_Options.GetWidth (), m_Options.GetHeight ()),
 #endif
@@ -67,33 +70,6 @@ CKernel::~CKernel (void)
 boolean CKernel::Initialize (void)
 {
 	boolean bOK = TRUE;
-	
-	//m_pFrameBuffer = new CBcmFrameBuffer (OUTPUT_DISPLAY_WIDTH, OUTPUT_DISPLAY_HEIGHT, 8);
-	//	
-	//for(int n = 0; n < 16; n++)
-	//{
-	//	m_pFrameBuffer->SetPalette32 (n, palettecga[n]);  
-	//}
-	//m_pFrameBuffer->SetPalette (0, 0x0000);  // black
-	//m_pFrameBuffer->SetPalette (1, 0x0010);  // blue
-	//m_pFrameBuffer->SetPalette (2, 0x8000);  // red
-	//m_pFrameBuffer->SetPalette (3, 0x8010);  // magenta
-	//m_pFrameBuffer->SetPalette (4, 0x0400);  // green
-	//m_pFrameBuffer->SetPalette (5, 0x0410);  // cyan
-	//m_pFrameBuffer->SetPalette (6, 0x8400);  // yellow
-	//m_pFrameBuffer->SetPalette (7, 0x8410);  // white
-	//m_pFrameBuffer->SetPalette (8, 0x0000);  // black
-	//m_pFrameBuffer->SetPalette (9, 0x001F);  // bright blue
-	//m_pFrameBuffer->SetPalette (10, 0xF800); // bright red
-	//m_pFrameBuffer->SetPalette (11, 0xF81F); // bright magenta
-	//m_pFrameBuffer->SetPalette (12, 0x07E0); // bright green
-	//m_pFrameBuffer->SetPalette (13, 0x07FF); // bright cyan
-	//m_pFrameBuffer->SetPalette (14, 0xFFE0); // bright yellow
-	//m_pFrameBuffer->SetPalette (15, 0xFFFF); // bright white
-
-	//if (!m_pFrameBuffer->Initialize()) {
-	//	return FALSE;
-	//}
 	
 #if !USE_BCM_FRAMEBUFFER
 	if (bOK)
@@ -170,12 +146,14 @@ boolean CKernel::Initialize (void)
 		vmConfig->asciiFile = HostInterface->openFile("SD:/asciivga.dat");
 		vmConfig->diskDriveA = HostInterface->openFile("SD:/dosboot.img");
 
+#if USE_EMBEDDED_ROM_IMAGES
 		if(!vmConfig->biosFile)
 			vmConfig->biosFile = new EmbeddedDisk(pcxtbios, sizeof(pcxtbios));
 		if(!vmConfig->videoRomFile)
 			vmConfig->videoRomFile = new EmbeddedDisk(videorom, sizeof(videorom));
 		if(!vmConfig->asciiFile)
 			vmConfig->asciiFile = new EmbeddedDisk(asciivga, sizeof(asciivga));
+#endif
 #if USE_EMBEDDED_BOOT_FLOPPY
 		if(!vmConfig->diskDriveA)
 			vmConfig->diskDriveA = new EmbeddedDisk(dosboot, sizeof(dosboot));

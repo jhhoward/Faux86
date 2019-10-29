@@ -1,7 +1,7 @@
 /*
   Faux86: A portable, open-source 8086 PC emulator.
   Copyright (C)2018 James Howard
-  Base on Fake86
+  Based on Fake86
   Copyright (C)2010-2013 Mike Chambers
 
   This program is free software; you can redistribute it and/or
@@ -475,6 +475,11 @@ void SDLHostSystemInterface::tick(VM& vm)
 
 void Faux86::log(Faux86::LogChannel channel, const char* message, ...)
 {
+	const bool enableLogRaw = false;
+
+	if (channel == LogRaw && !enableLogRaw)
+		return;
+
 	va_list myargs;
 	va_start(myargs, message);
 	vprintf(message, myargs);
