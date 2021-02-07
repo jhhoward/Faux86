@@ -144,7 +144,7 @@ void CPU::flag_adc8 (uint8_t v1, uint8_t v2, uint8_t v3)
 			af = 1;
 		}
 	else {
-			af = 0; /* set or clear auxilliary flag */
+			af = 0; /* set or clear auxiliary flag */
 		}
 }
 
