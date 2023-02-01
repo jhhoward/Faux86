@@ -119,7 +119,7 @@ namespace Faux86
 		void queueEvent(InputEvent& inEvent);
 		void queueEvent(EventType eventType, u16 scancode);
 		
-		static void mouseStatusHandler (unsigned nButtons, int nDisplacementX, int nDisplacementY);
+		static void mouseStatusHandler (unsigned nButtons, int nDisplacementX, int nDisplacementY, int nWheelMove);
 		static void keyStatusHandlerRaw (unsigned char ucModifiers, const unsigned char RawKeys[6]);
 
 		CircleFrameBufferInterface frameBuffer;
