@@ -255,7 +255,7 @@ void CircleHostInterface::queueEvent(EventType eventType, u16 scancode)
 	}
 }
 
-void CircleHostInterface::mouseStatusHandler (unsigned nButtons, int nDisplacementX, int nDisplacementY)
+void CircleHostInterface::mouseStatusHandler (unsigned nButtons, int nDisplacementX, int nDisplacementY, int nWheelMove)
 {
 	InputEvent newEvent;
 	
